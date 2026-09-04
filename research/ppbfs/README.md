@@ -49,7 +49,12 @@ The research chain is intentionally linear:
 91011b98e55  controlled materiality harness
 1529bdd7fdb  warmed timing mode
 caf33be9f5d  canonical direct repository prototype
+ddb62158229  state-partitioned canonical repository prototype
 ```
+
+Candidate decisions and the conditional C3 definition are maintained in
+`state-index/reports/CANDIDATE_MATRIX.md`. C3 is not implemented unless C2 leaves
+a measured Pareto gap under that policy.
 
 Reusable local artifacts remain immutable/versioned where practical. Existing
 screening results are preserved under `state-index/results/2026-09-04/`; they are

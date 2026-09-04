@@ -25,3 +25,5 @@ Additional canonical reports:
 
 - `MEMORY_PROFILE_ROADNET_PA.md` records plan-verified tracked-memory evidence.
 - `NEAR_LIMIT_ROADNET_PA.md` records the fixed-limit allocator-boundary regression.
+- `C2_ROADNET_PA.md` records C2 qualification, invalid-run exclusion, and the
+  evidence-gated decision to trigger C3.

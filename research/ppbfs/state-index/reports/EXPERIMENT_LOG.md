@@ -119,3 +119,22 @@ analysis, near-limit tests, or multi-topology memory evidence.
 - C1 therefore fails the mandatory near-limit gate. This justifies evaluating a
   lower-overhead canonical representation; C1 cannot be the retained design.
 - Canonical report: `state-index/results/2026-09-04/NEAR_LIMIT_ROADNET_PA.md`.
+
+## 2026-09-04 — C2 qualification and C3 trigger
+
+- C2 focused correctness completed 78 tests with zero failures/errors and five
+  skips; Spotless apply/check passed.
+- The initial C2 server distribution was provenance-invalid because its
+  runtime-util JAR hash matched C1. Four affected run directories are retained
+  and explicitly excluded; none contributes to the result.
+- Rebuilt the actual Community distribution through the 129-module assembler.
+  Build passed in 08:16; bytecode and JAR hash bind it to C2.
+- Valid C2 fails the depth-250 query at 92 and 93 MiB and passes at 94 MiB.
+  B0 passes at 92 MiB and C1 first passes at 93 MiB.
+- Valid three-fork C1/C2 screening estimates C2 retention at 89.9% overall,
+  93.3% shallow, and 85.6% deep. Intervals remain wide; this is screening.
+- Plan-verified C2 tracked-memory deltas versus B0 range from -2.06% to +2.05%,
+  but the aggregate profile does not override the fixed-limit failure.
+- C2 is rejected as the final design. Both the memory weakness and screening
+  performance threshold trigger the conditional C3 experiment.
+- Canonical report: `state-index/results/2026-09-04/C2_ROADNET_PA.md`.

@@ -1,0 +1,3 @@
+case_id,source,target,distance,limit,expected
+d250-pass-93m,457532,78764,250,93m,PASS
+d250-pass-94m,457532,78764,250,94m,PASS
