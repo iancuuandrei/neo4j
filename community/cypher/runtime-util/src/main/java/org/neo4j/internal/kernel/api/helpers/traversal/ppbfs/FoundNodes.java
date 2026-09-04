@@ -32,44 +32,18 @@ import org.neo4j.util.Preconditions;
  * retrieved and supplied to the product graph cursor at once.
  *
  *
- * <pre>
- * We store all the nodes we've seen level by level. We do this so that we can have access to both the current and
- * next levels, without duplicating data, or reallocating collections due to .grow calls.
+ * The canonical repository and frontier scheduling have separate lifecycles. {@code allStates} retains exactly one
+ * reference for every discovered product-state key for the whole search and provides direct lookup. The forward and
+ * backward frontiers contain only states eligible for the next expansion in that direction. {@code frontierBuffer}
+ * collects the next frontier while the current frontier is being iterated.
  *
- * To enable us to group nodes by their data graph id, we keep NodeStates in something similar to a two dimensional
- * hash map. For example, to get the node (nodeId=2, stateId=3) from the currentLevel, we'd call
- * currentLevel.get(2).get(3). The fact that stateId's are sequential allows us to let the type of currentLevel
- * be HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>, so currentLevel.get(2) returns an array list,
- * where the NodeState corresponding to stateId=3 is stored at index 3. This may lead to over allocation and sparse
- * arrays for certain NFA's, so we may want to revise this in the future if benchmarks tell us to.
+ * <p>All collections use the same two-level representation: a node-id map whose values are dense arrays indexed by
+ * sequential NFA state id. A state is registered in the canonical repository before its buffer entry becomes visible,
+ * so recursive juxtaposition processing can resolve the same instance. Retiring a frontier releases only its
+ * scheduling structures; canonical lookup ownership lasts until this repository is closed.
  *
- * We keep all of our nodes in three disjoint collections, all of them adhere to the same indexing scheme as
- * explained above for currentLevel:
- *
- *  1) history. This is an array list of (nodeId, stateId) -> nodeState maps which store all the levels we've
- *     previously seen. So previousLevels.get(3) stores the nodes which were discovered in the previous level
- *  2) frontier. This is a map with (nodeId, stateId) -> nodeState for the current level
- *  3) frontierBuffer. This is a map with (nodeId, stateId) -> nodeState for the next level, so that we can iterate
- *     over the current frontier while collecting new nodes for the next frontier
- *
- *  So for example, if we're currently expanding level 3, to find nodes at distance 4 from the source,
- *  our data would look like
- *
- *  ┌───────────────────────────┐
- *  │          history          │
- *  │ ┌─────┐  ┌─────┐  ┌─────┐ │  ┌──────────────┐  ┌────────────┐
- *  │ │  0  │  │  1  │  │  2  │ │  │ 3 (frontier) │  │ 4 (buffer) │
- *  │ └─────┘  └─────┘  └─────┘ │  └──────────────┘  └────────────┘
- *  └───────────────────────────┘
- *
- * Keeping our nodeStates batched by level like this allows us to avoid rehashing and reallocating the whole
- * collection when we need to grow it, we only ever rehash/reallocate the buffer as it grows.
- *
- * A downside of this design is that looking up a node is linear w.r.t the depth of the bfs.
- *
- * We also support a bidirectional mode, which allocates two frontiers: one for forwards traversal and one
- * for backwards traversal. They share the same buffer since we only expand in one direction at a time.
- * </pre>
+ * <p>Bidirectional search has distinct forward and backward frontiers but shares one buffer because only one direction
+ * expands at a time. Both directions share the canonical product-state repository.
  */
 public final class FoundNodes implements AutoCloseable {
     private final HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
