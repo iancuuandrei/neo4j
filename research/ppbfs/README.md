@@ -50,15 +50,17 @@ The research chain is intentionally linear:
 1529bdd7fdb  warmed timing mode
 caf33be9f5d  canonical direct repository prototype
 ddb62158229  state-partitioned canonical repository prototype
+bb48edd50d1  adaptive node-major bucket prototype
 ```
 
 Candidate decisions and the conditional C3 definition are maintained in
-`state-index/reports/CANDIDATE_MATRIX.md`. C3 is not implemented unless C2 leaves
-a measured Pareto gap under that policy.
+`state-index/reports/CANDIDATE_MATRIX.md`. C2 triggered C3, but C3 failed the
+mandatory 92 MiB gate. B0 remains the retained design and no direct-state-index
+contribution is authorized. The consolidated verdict is in
+`state-index/BENCHMARK_REPORT.md`.
 
-Reusable local artifacts remain immutable/versioned where practical. Existing
-screening results are preserved under `state-index/results/2026-09-04/`; they are
-not a completed statistical benchmark.
+Reusable local artifacts remain immutable/versioned where practical. Completed
+and negative evidence is preserved under `state-index/results/2026-09-04/`.
 
 ## Running one real-graph JVM fork
 

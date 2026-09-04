@@ -27,3 +27,5 @@ Additional canonical reports:
 - `NEAR_LIMIT_ROADNET_PA.md` records the fixed-limit allocator-boundary regression.
 - `C2_ROADNET_PA.md` records C2 qualification, invalid-run exclusion, and the
   evidence-gated decision to trigger C3.
+- `C3_ROADNET_PA.md` records C3 correctness, exact build provenance, and its
+  rejection at the first 92 MiB memory gate.
