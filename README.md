@@ -42,3 +42,5 @@ The operating workflow is documented in [docs/WORKFLOW.md](docs/WORKFLOW.md).
 Neo4j is developed by Neo4j and its contributors. Most code in this repository is
 upstream Neo4j source. Only explicitly identified personal branches and commits
 represent my work. Existing upstream licenses and attribution remain authoritative.
+The baseline's [upstream project README](docs/upstream/README.asciidoc) is preserved
+unchanged in substance for reference.
