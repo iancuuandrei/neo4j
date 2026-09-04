@@ -2085,12 +2085,15 @@ class PGPathPropagatingBFSTest extends RuntimeUtilTestSuite with PGPathPropagati
 
     val heap2 = mt.estimatedHeapMemory()
     heap1 should be > 0L
-    heap2 should be > 0L
+    // Advancing retires the first frontier while retaining canonical node-state lookup ownership.
+    heap2 should be < heap1
 
     iter.next() // b
 
     val heap3 = mt.estimatedHeapMemory()
-    heap3 should be > 0L
+    // The next frontier and newly discovered canonical state must both be tracked.
+    heap3 should be > heap2
+    heap3 should be > heap1
 
     iter.close()
 
