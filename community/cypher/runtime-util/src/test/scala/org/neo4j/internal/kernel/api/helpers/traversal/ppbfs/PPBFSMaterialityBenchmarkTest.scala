@@ -97,6 +97,31 @@ class PPBFSMaterialityBenchmarkTest extends RuntimeUtilTestSuite with PGPathProp
     (metrics, elapsed, paths.head.length)
   }
 
+  private def preparedChain(depth: Int): () => Int = {
+    val graph = InMemoryGraph.builder
+    val nodes = Array.fill(depth + 1)(graph.node())
+    for (i <- 0 until depth) graph.rel(nodes(i), nodes(i + 1))
+    val builtGraph = graph.build()
+
+    () => {
+      val paths = fixture()
+        .withGraph(builtGraph)
+        .from(nodes.head)
+        .into(nodes.last)
+        .withK(1)
+        .withPathMode(TraversalPathMode.Walk)
+        .withNfa { sb =>
+          val start = sb.newState("start", isStartState = true)
+          val loop = sb.newState("loop", isFinalState = true)
+          start.addRelationshipExpansion(loop, direction = Direction.OUTGOING)
+          loop.addRelationshipExpansion(loop, direction = Direction.OUTGOING)
+        }
+        .paths()
+      paths should have size 1
+      paths.head.length
+    }
+  }
+
   test("record controlled chain history-probe scaling") {
     val depths = sys.props
       .get("ppbfs.depths")
@@ -129,9 +154,48 @@ class PPBFSMaterialityBenchmarkTest extends RuntimeUtilTestSuite with PGPathProp
     Files.createDirectories(output.getParent)
     Files.writeString(output, rows.mkString("\n") + "\n", StandardCharsets.UTF_8)
 
-    val first = rows(1).split(',')
-    val last = rows.last.split(',')
-    last(2).toLong should be > first(2).toLong
-    last(3).toDouble should be > first(3).toDouble
+    if (depths.size > 1 && rows(1).split(',')(2).toLong > 0) {
+      val first = rows(1).split(',')
+      val last = rows.last.split(',')
+      last(2).toLong should be > first(2).toLong
+      last(3).toDouble should be > first(3).toDouble
+    }
+  }
+
+  test("record controlled chain warmed latency") {
+    assume(sys.props.contains("ppbfs.timing.output"), "experimental timing run not requested")
+    val depths = sys.props
+      .get("ppbfs.depths")
+      .map(_.split(',').map(_.trim.toInt).toSeq)
+      .getOrElse(Seq(256, 1024, 4096, 8192))
+    val warmups = sys.props.get("ppbfs.warmups").fold(5)(_.toInt)
+    val repetitions = sys.props.get("ppbfs.repetitions").fold(10)(_.toInt)
+    val rows = ArrayBuffer("depth,warmups,repetitions,median_ns,p95_ns,min_ns,max_ns,path_entities")
+
+    depths.foreach { depth =>
+      val execute = preparedChain(depth)
+      for (_ <- 0 until warmups) execute()
+      val samples = Array.fill(repetitions) {
+        val start = System.nanoTime()
+        val entities = execute()
+        (System.nanoTime() - start, entities)
+      }.sortBy(_._1)
+      val median = samples(samples.length / 2)._1
+      val p95 = samples(math.min(samples.length - 1, math.ceil(samples.length * 0.95).toInt - 1))._1
+      rows += Seq(
+        depth,
+        warmups,
+        repetitions,
+        median,
+        p95,
+        samples.head._1,
+        samples.last._1,
+        samples.head._2
+      ).mkString(",")
+    }
+
+    val output = Path.of(sys.props("ppbfs.timing.output"))
+    Files.createDirectories(output.getParent)
+    Files.writeString(output, rows.mkString("\n") + "\n", StandardCharsets.UTF_8)
   }
 }
