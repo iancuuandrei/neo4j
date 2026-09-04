@@ -24,6 +24,7 @@ import org.neo4j.cypher.internal.runtime.RuntimeUtilTestSuite
 import org.neo4j.cypher.internal.util.test_helpers.InMemoryGraph
 import org.neo4j.function.Predicates
 import org.neo4j.graphdb.Direction
+import org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.FoundNodes.LookupLocation
 import org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.NfaDsl.Implicits._
 import org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.PGPathPropagatingBFSTest._
 import org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.PGPathPropagatingBFSTestBase.Nfa
@@ -47,6 +48,55 @@ import scala.jdk.CollectionConverters.IteratorHasAsScala
 import scala.language.postfixOps
 
 class PGPathPropagatingBFSTest extends RuntimeUtilTestSuite with PGPathPropagatingBFSTestBase {
+
+  test("FoundNodes instrumentation reports depth-growing misses without changing results") {
+    val graph = InMemoryGraph.builder
+    val a = graph.node()
+    val b = graph.node()
+    val c = graph.node()
+    val d = graph.node()
+    val ab = graph.rel(a, b)
+    val bc = graph.rel(b, c)
+    val cd = graph.rel(c, d)
+    val lookups = scala.collection.mutable.ArrayBuffer.empty[(LookupLocation, Int, Int, Int)]
+    var allocatedSlots = 0
+    val hooks = new PPBFSHooks {
+      override def foundNodesLookup(
+        location: LookupLocation,
+        historyProbes: Int,
+        historyHitAge: Int,
+        historyDepth: Int
+      ): Unit = lookups += ((location, historyProbes, historyHitAge, historyDepth))
+
+      override def foundNodesBufferAdd(newNodeBucket: Boolean, slots: Int): Unit =
+        if (newNodeBucket) allocatedSlots += slots
+    }
+
+    val paths = fixture()
+      .withGraph(graph.build())
+      .from(a)
+      .withNfa { sb =>
+        val s = sb.newState("s", isStartState = true)
+        val e = sb.newState("e", isFinalState = true)
+        s.addRelationshipExpansion(e)
+        e.addRelationshipExpansion(e)
+      }
+      .withHooks(hooks)
+      .paths()
+
+    paths shouldBe Seq(
+      Seq(a, ab, b),
+      Seq(a, ab, b, bc, c),
+      Seq(a, ab, b, bc, c, cd, d)
+    )
+    lookups.collect { case (LookupLocation.MISS, probes, _, _) => probes } shouldBe Seq(0, 1, 1, 2)
+    lookups.collect { case (LookupLocation.HISTORY, probes, age, _) => (probes, age) } shouldBe Seq(
+      (1, 0),
+      (1, 0),
+      (1, 0)
+    )
+    allocatedSlots shouldBe 10
+  }
 
   /*************************************
    * simple tests on the nfa traversal *

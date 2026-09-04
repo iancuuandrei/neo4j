@@ -108,7 +108,7 @@ public final class PGPathPropagatingBFS<Row> extends PrefetchingIterator<Row> im
         this.memoryTracker = mt.getScopedMemoryTracker();
         this.hooks = hooks;
         this.assertOpen = assertOpen;
-        this.foundNodes = new FoundNodes(this.memoryTracker, searchMode, nfaStateCount);
+        this.foundNodes = new FoundNodes(this.memoryTracker, searchMode, nfaStateCount, hooks);
         this.targets = new TargetTracker(this.memoryTracker, hooks);
         this.propagator = new Propagator(this.memoryTracker, hooks);
         this.globalState =

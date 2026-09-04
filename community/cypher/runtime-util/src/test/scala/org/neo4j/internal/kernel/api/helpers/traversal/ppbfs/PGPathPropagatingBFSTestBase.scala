@@ -109,6 +109,7 @@ trait PGPathPropagatingBFSTestBase { self: RuntimeUtilTestSuite =>
     def withMaxDepth(maxDepth: Int): FixtureBuilder[A] = copy(maxDepth = maxDepth)
     def withK(k: Int): FixtureBuilder[A] = copy(k = k)
     def withMemoryTracker(mt: MemoryTracker): FixtureBuilder[A] = copy(mt = mt)
+    def withHooks(hooks: PPBFSHooks): FixtureBuilder[A] = copy(hooks = hooks)
     def onAssertOpen(assertOpen: => Unit): FixtureBuilder[A] = copy(assertOpen = () => assertOpen)
 
     /** NB: wipes any configured filter, since the iterated item type will change */

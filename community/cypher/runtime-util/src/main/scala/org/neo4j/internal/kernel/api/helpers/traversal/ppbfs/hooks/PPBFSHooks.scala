@@ -22,6 +22,7 @@ package org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.hooks
 import org.neo4j.collection.trackable.HeapTrackingArrayList
 import org.neo4j.collection.trackable.HeapTrackingSkipList
 import org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.FoundNodes
+import org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.FoundNodes.LookupLocation
 import org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.GlobalState.ScheduleSource
 import org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.NodeState
 import org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.Propagator
@@ -94,6 +95,15 @@ abstract class PPBFSHooks {
   def expand(direction: TraversalDirection, foundNodes: FoundNodes): Unit = {}
   def expandNode(nodeId: Long, states: HeapTrackingArrayList[State], direction: TraversalDirection): Unit = {}
   def discover(node: NodeState, direction: TraversalDirection): Unit = {}
+
+  // FoundNodes baseline instrumentation. Implementations must aggregate these events rather than logging per lookup.
+  def foundNodesLookup(
+    location: LookupLocation,
+    historyProbes: Int,
+    historyHitAge: Int,
+    historyDepth: Int
+  ): Unit = {}
+  def foundNodesBufferAdd(newNodeBucket: Boolean, allocatedStateSlots: Int): Unit = {}
 
   def cursorSetNode(nodeId: Long): Unit = {}
   def cursorNextRelationship(nodeId: Long): Unit = {}

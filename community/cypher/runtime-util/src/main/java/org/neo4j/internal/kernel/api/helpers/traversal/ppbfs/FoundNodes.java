@@ -21,6 +21,7 @@ package org.neo4j.internal.kernel.api.helpers.traversal.ppbfs;
 
 import org.neo4j.collection.trackable.HeapTrackingArrayList;
 import org.neo4j.collection.trackable.HeapTrackingLongObjectHashMap;
+import org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.hooks.PPBFSHooks;
 import org.neo4j.memory.MemoryTracker;
 import org.neo4j.util.Preconditions;
 
@@ -84,6 +85,7 @@ public final class FoundNodes implements AutoCloseable {
             frontierBuffer; // nodeId x stateId -> NodeState
 
     private final MemoryTracker memoryTracker;
+    private final PPBFSHooks hooks;
     private final SearchMode mode;
     private final int nfaStateCount;
 
@@ -91,9 +93,10 @@ public final class FoundNodes implements AutoCloseable {
 
     private int backwardDepth = 0;
 
-    public FoundNodes(MemoryTracker memoryTracker, SearchMode mode, int nfaStateCount) {
+    public FoundNodes(MemoryTracker memoryTracker, SearchMode mode, int nfaStateCount, PPBFSHooks hooks) {
         this.memoryTracker = memoryTracker.getScopedMemoryTracker();
         this.mode = mode;
+        this.hooks = hooks;
         this.history = HeapTrackingArrayList.newArrayList(this.memoryTracker);
         this.forwardFrontier = HeapTrackingLongObjectHashMap.createLongObjectHashMap(this.memoryTracker);
         if (mode == SearchMode.Bidirectional) {
@@ -106,28 +109,33 @@ public final class FoundNodes implements AutoCloseable {
     public void addToBuffer(NodeState nodeState) {
         Preconditions.checkState(bufferState == BufferState.OPEN, "NodeState added to closed buffer");
         var nodeStates = frontierBuffer.get(nodeState.id());
+        var newNodeBucket = nodeStates == null;
         if (nodeStates == null) {
             nodeStates = HeapTrackingArrayList.newEmptyArrayList(nfaStateCount, memoryTracker);
             frontierBuffer.put(nodeState.id(), nodeStates);
         }
         nodeStates.set(nodeState.state().id(), nodeState);
+        hooks.foundNodesBufferAdd(newNodeBucket, nfaStateCount);
     }
 
     /** Look up a NodeState. O(N) wrt history length */
     public NodeState get(long nodeId, int stateId) {
         var nodeState = getFromLevel(frontierBuffer, nodeId, stateId);
         if (nodeState != null) {
+            hooks.foundNodesLookup(LookupLocation.BUFFER, 0, -1, history.size());
             return nodeState;
         }
 
         nodeState = getFromLevel(forwardFrontier, nodeId, stateId);
         if (nodeState != null) {
+            hooks.foundNodesLookup(LookupLocation.FORWARD_FRONTIER, 0, -1, history.size());
             return nodeState;
         }
 
         if (mode == SearchMode.Bidirectional) {
             nodeState = getFromLevel(backwardFrontier, nodeId, stateId);
             if (nodeState != null) {
+                hooks.foundNodesLookup(LookupLocation.BACKWARD_FRONTIER, 0, -1, history.size());
                 return nodeState;
             }
         }
@@ -135,9 +143,12 @@ public final class FoundNodes implements AutoCloseable {
         for (int i = history.size() - 1; i >= 0; i--) {
             nodeState = getFromLevel(history.get(i), nodeId, stateId);
             if (nodeState != null) {
+                var historyHitAge = history.size() - i - 1;
+                hooks.foundNodesLookup(LookupLocation.HISTORY, historyHitAge + 1, historyHitAge, history.size());
                 return nodeState;
             }
         }
+        hooks.foundNodesLookup(LookupLocation.MISS, history.size(), -1, history.size());
         return null;
     }
 
@@ -247,5 +258,13 @@ public final class FoundNodes implements AutoCloseable {
     private enum BufferState {
         OPEN,
         CLOSED
+    }
+
+    public enum LookupLocation {
+        BUFFER,
+        FORWARD_FRONTIER,
+        BACKWARD_FRONTIER,
+        HISTORY,
+        MISS
     }
 }
