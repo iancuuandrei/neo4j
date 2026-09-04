@@ -1,7 +1,8 @@
 # State-index screening evidence — 2026-09-04
 
-Status: preliminary screening only; the multi-fork statistical protocol was
-interrupted when workspace consolidation became the active goal.
+Status: the two checked-in CSVs remain preliminary screening evidence. The
+completed metadata-bound five-fork analysis is summarized in
+[`FORMAL_ROADNET_PA.md`](FORMAL_ROADNET_PA.md); bulky raw runs remain external.
 
 ```text
 baseline upstream SHA: f213380f812b820a1b312e2ea52cb3d8f1931ccc

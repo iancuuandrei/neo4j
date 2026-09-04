@@ -19,6 +19,27 @@
 - Matched PROFILE DB hits were 6,127,334. Baseline plan time was approximately 31.55 s and C1 approximately 5.59 s. Reported plan memory was 1,042,920,640 bytes for baseline and 1,035,462,144 bytes for C1.
 - A randomized two-repetition roadNet-PA screen preserved identical result-length sets for all seven pairs. It remains preliminary, not statistically complete.
 
-The formal multi-fork run was paused when workspace consolidation superseded the
-research goal. One completed baseline fork is retained only as partial evidence;
-no upstream performance claim is made from it.
+## 2026-09-04 — formal roadNet-PA paired timing
+
+- Completed five metadata-bound baseline/C1 JVM-fork pairs with seeds
+  `20260904` through `20260908`.
+- All retained samples bind to source SHA, distribution JAR hash, full imported
+  database manifest, dataset/query/config hashes, Java/Maven/PowerShell/storage
+  environment, and protocol settings.
+- One earlier baseline attempt produced an empty CSV. It remains preserved as
+  `roadNet-PA-b0-fork2.csv`; the successful retry used `fork2-retry1` and was not
+  silently substituted or overwritten.
+- All result-length sets matched between baseline and C1.
+- Deep-distance aggregate (250, 500, 772 hops): 4.373x geometric-mean speedup,
+  95% paired-log Student-t CI [2.126x, 8.993x].
+- Shallow/common-case aggregate (10, 25, 50, 100 hops): 0.941x, 95% CI
+  [0.431x, 2.056x]. This is an uncertain 5.9% point regression and therefore
+  does not pass the common-case regression gate.
+- All-distance aggregate: 1.818x, 95% CI [0.858x, 3.850x].
+- Canonical analysis: `state-index/results/2026-09-04/FORMAL_ROADNET_PA.md`.
+- Raw immutable inputs and machine-readable analysis remain in the ignored
+  shared D: artifact store.
+
+This establishes a real-graph deep-path benefit and retains C1 for further
+evaluation. It does not satisfy multi-topology benefit, common-case regression,
+memory, broad correctness, or upstream-contribution gates.
