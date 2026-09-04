@@ -1,9 +1,9 @@
 # PPBFS research lab
 
-All work in this lab follows the repository-wide specification, benchmark,
-documentation, and upstream-PR rules in [`AGENTS.md`](../../AGENTS.md). Their
-first-party evidence audit is recorded in
-[`research/governance/BENCHMARK_SPEC_PR_PRACTICES_AUDIT.md`](../governance/BENCHMARK_SPEC_PR_PRACTICES_AUDIT.md).
+All work in this lab follows [`research/AGENTS.md`](../AGENTS.md), the root
+[`AGENTS.md`](../../AGENTS.md), and the self-contained standards under
+[`docs/standards/`](../../docs/standards/README.md). External source provenance
+is kept separately in [`docs/standards/SOURCES.md`](../../docs/standards/SOURCES.md).
 
 This directory is the single reusable research area for Neo4j core work involving
 `StatefulShortestPath`, `PGPathPropagatingBFS`, `FoundNodes`, `BFSExpander`,
