@@ -5,7 +5,9 @@ param(
     [Parameter(Mandatory = $true)] [string]$LogPrefix,
     [int]$Warmups = 1,
     [int]$Repetitions = 1,
-    [int]$Seed = 20260904
+    [int]$Seed = 20260904,
+    [string]$ProfileJsonl,
+    [string]$ProfileSummary
 )
 
 $ErrorActionPreference = 'Stop'
@@ -64,7 +66,19 @@ try {
         throw "Neo4j did not become ready; inspect $stdoutLog and $stderrLog"
     }
 
-    & python -u $scriptPath $manifestPath $outputPath --warmups $Warmups --repetitions $Repetitions --seed $Seed
+    $benchmarkArguments = @(
+        '-u', $scriptPath, $manifestPath, $outputPath,
+        '--warmups', $Warmups, '--repetitions', $Repetitions, '--seed', $Seed
+    )
+    if ($ProfileJsonl -or $ProfileSummary) {
+        if (-not $ProfileJsonl -or -not $ProfileSummary) {
+            throw 'ProfileJsonl and ProfileSummary must be supplied together.'
+        }
+        $profileJsonlPath = [IO.Path]::GetFullPath($ProfileJsonl)
+        $profileSummaryPath = [IO.Path]::GetFullPath($ProfileSummary)
+        $benchmarkArguments += @('--profile-jsonl', $profileJsonlPath, '--profile-summary', $profileSummaryPath)
+    }
+    & python @benchmarkArguments
     if ($LASTEXITCODE -ne 0) {
         throw "Benchmark exited with code $LASTEXITCODE"
     }

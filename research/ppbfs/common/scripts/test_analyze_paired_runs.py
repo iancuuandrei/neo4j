@@ -6,9 +6,28 @@ import unittest
 from pathlib import Path
 
 from analyze_paired_runs import analyze, load_csv
+from cypher_http_benchmark import find_operator
 
 
 class AnalyzePairedRunsTest(unittest.TestCase):
+    def test_find_operator_fails_closed_and_finds_nested_expected_operator(self) -> None:
+        plan = {
+            "operatorType": "ProduceResults",
+            "children": [{"operatorType": "StatefulShortestPath", "args": {"Memory": 123}, "children": []}],
+        }
+
+        self.assertEqual("StatefulShortestPath", find_operator(plan, "StatefulShortestPath")["operatorType"])
+        self.assertIsNone(find_operator(plan, "ShortestPath"))
+
+        detailed = {"operatorType": "StatefulShortestPath(Into, Trail)", "children": []}
+        self.assertEqual(detailed, find_operator(detailed, "StatefulShortestPath"))
+
+        wrapped = {"root": plan}
+        self.assertEqual(
+            "StatefulShortestPath",
+            find_operator(wrapped["root"], "StatefulShortestPath")["operatorType"],
+        )
+
     def test_load_csv_groups_repetitions_without_treating_them_as_forks(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "run.csv"
