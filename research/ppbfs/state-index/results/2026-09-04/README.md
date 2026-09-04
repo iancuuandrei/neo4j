@@ -20,3 +20,8 @@ All paired result-length sets matched. These CSVs justify retaining the research
 candidate, but are not sufficient for an upstream performance claim. Complete
 JFR, controlled-run, plan, server-log, and imported-store artifacts remain in the
 shared ignored artifact store.
+
+Additional canonical reports:
+
+- `MEMORY_PROFILE_ROADNET_PA.md` records plan-verified tracked-memory evidence.
+- `NEAR_LIMIT_ROADNET_PA.md` records the fixed-limit allocator-boundary regression.

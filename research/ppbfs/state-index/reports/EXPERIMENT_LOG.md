@@ -99,3 +99,23 @@ memory, broad correctness, or upstream-contribution gates.
 This is one plan-profile pass on one graph. It supports the memory gate for the
 observed workload, but does not replace JOL/HeapEstimator validation, occupancy
 analysis, near-limit tests, or multi-topology memory evidence.
+
+## 2026-09-04 — fixed transaction-memory boundary
+
+- The initial dynamic-setting harness failed twice because the built Community
+  distribution does not expose `dbms.setConfigValue`; both attempts are retained.
+- Replaced it with fresh JVMs and isolated `NEO4J_CONF` directories per variant
+  and limit. Raw responses are written before validation, the active setting is
+  verified through `SHOW SETTINGS`, and only source-confirmed transaction quota
+  errors are accepted as expected failures.
+- A 1 MiB smoke limit was rejected because it prevents system-database startup;
+  the failed run is retained. Both variants pass the shallow controls at 4 MiB.
+- At roadNet-PA distance 250 and an identical 92 MiB limit, B0 returned two
+  correct 250-hop rows while C1 failed with
+  `Neo.TransientError.General.MemoryPoolOutOfMemoryError` at
+  `db.memory.transaction.max`.
+- The pass/fail split reproduced in three independent fresh-process pairs with
+  byte-identical raw query records.
+- C1 therefore fails the mandatory near-limit gate. This justifies evaluating a
+  lower-overhead canonical representation; C1 cannot be the retained design.
+- Canonical report: `state-index/results/2026-09-04/NEAR_LIMIT_ROADNET_PA.md`.

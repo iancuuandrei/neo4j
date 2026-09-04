@@ -53,3 +53,10 @@ not process RSS or cumulative allocation.
   construction-time peak still requires dedicated structural analysis.
 
 The memory gate remains incomplete until the unrun items are resolved.
+
+## Subsequent near-limit result
+
+`MEASURED`: the later fixed-limit experiment found an allocator-boundary
+regression that this aggregate profile did not reveal. At 92 MiB and distance
+250, B0 succeeds while C1 fails reproducibly. Therefore C1 fails the near-limit
+gate despite the small percentage delta above. See `NEAR_LIMIT_ROADNET_PA.md`.
