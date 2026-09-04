@@ -37,17 +37,18 @@ import org.neo4j.util.Preconditions;
  * backward frontiers contain only states eligible for the next expansion in that direction. {@code frontierBuffer}
  * collects the next frontier while the current frontier is being iterated.
  *
- * <p>All collections use the same two-level representation: a node-id map whose values are dense arrays indexed by
- * sequential NFA state id. A state is registered in the canonical repository before its buffer entry becomes visible,
- * so recursive juxtaposition processing can resolve the same instance. Retiring a frontier releases only its
- * scheduling structures; canonical lookup ownership lasts until this repository is closed.
+ * <p>The canonical repository is partitioned by sequential NFA state id; each occupied partition maps data-node id to
+ * its canonical NodeState. Frontier collections retain the node-id map and dense state-array layout needed by product
+ * graph expansion. A state is registered in the canonical repository before its buffer entry becomes visible, so
+ * recursive juxtaposition processing can resolve the same instance. Retiring a frontier releases only its scheduling
+ * structures; canonical lookup ownership lasts until this repository is closed.
  *
  * <p>Bidirectional search has distinct forward and backward frontiers but shares one buffer because only one direction
  * expands at a time. Both directions share the canonical product-state repository.
  */
 public final class FoundNodes implements AutoCloseable {
-    private final HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
-            allStates; // nodeId x stateId -> NodeState
+    private final HeapTrackingArrayList<HeapTrackingLongObjectHashMap<NodeState>>
+            allStates; // stateId x nodeId -> NodeState
 
     private HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
             forwardFrontier; // nodeId x stateId -> NodeState
@@ -71,7 +72,7 @@ public final class FoundNodes implements AutoCloseable {
         this.memoryTracker = memoryTracker.getScopedMemoryTracker();
         this.mode = mode;
         this.hooks = hooks;
-        this.allStates = HeapTrackingLongObjectHashMap.createLongObjectHashMap(this.memoryTracker);
+        this.allStates = HeapTrackingArrayList.newEmptyArrayList(nfaStateCount, this.memoryTracker);
         this.forwardFrontier = HeapTrackingLongObjectHashMap.createLongObjectHashMap(this.memoryTracker);
         if (mode == SearchMode.Bidirectional) {
             this.backwardFrontier = HeapTrackingLongObjectHashMap.createLongObjectHashMap(this.memoryTracker);
@@ -82,15 +83,15 @@ public final class FoundNodes implements AutoCloseable {
 
     public void addToBuffer(NodeState nodeState) {
         Preconditions.checkState(bufferState == BufferState.OPEN, "NodeState added to closed buffer");
-        var allStatesForNode = allStates.get(nodeState.id());
-        if (allStatesForNode == null) {
-            allStatesForNode = HeapTrackingArrayList.newEmptyArrayList(nfaStateCount, memoryTracker);
-            allStates.put(nodeState.id(), allStatesForNode);
+        var allStatesForState = allStates.get(nodeState.state().id());
+        if (allStatesForState == null) {
+            allStatesForState = HeapTrackingLongObjectHashMap.createLongObjectHashMap(memoryTracker);
+            allStates.set(nodeState.state().id(), allStatesForState);
         }
-        var existing = allStatesForNode.get(nodeState.state().id());
+        var existing = allStatesForState.get(nodeState.id());
         Preconditions.checkState(
                 existing == null || existing == nodeState, "Attempted to replace canonical NodeState instance");
-        allStatesForNode.set(nodeState.state().id(), nodeState);
+        allStatesForState.put(nodeState.id(), nodeState);
 
         var nodeStates = frontierBuffer.get(nodeState.id());
         var newNodeBucket = nodeStates == null;
@@ -104,7 +105,8 @@ public final class FoundNodes implements AutoCloseable {
 
     /** Look up a NodeState by its canonical product-state key. */
     public NodeState get(long nodeId, int stateId) {
-        var nodeState = getFromLevel(allStates, nodeId, stateId);
+        var allStatesForState = allStates.get(stateId);
+        var nodeState = allStatesForState == null ? null : allStatesForState.get(nodeId);
         if (nodeState != null) {
             hooks.foundNodesLookup(LookupLocation.DIRECT, 0, -1, totalDepth());
             return nodeState;

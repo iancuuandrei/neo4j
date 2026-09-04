@@ -57,6 +57,24 @@ class FoundNodesTest extends RuntimeUtilTestSuite {
     found.close()
   }
 
+  test("canonical lookup distinguishes both node and state key dimensions") {
+    val found = new FoundNodes(new LocalMemoryTracker(), SearchMode.Unidirectional, 2, PPBFSHooks.NULL)
+    val node11State0 = nodeState(11, state0)
+    val node11State1 = nodeState(11, state1)
+    val node22State0 = nodeState(22, state0)
+
+    found.openBuffer()
+    found.addToBuffer(node11State0)
+    found.addToBuffer(node11State1)
+    found.addToBuffer(node22State0)
+
+    found.get(11, state0.id()) should be theSameInstanceAs node11State0
+    found.get(11, state1.id()) should be theSameInstanceAs node11State1
+    found.get(22, state0.id()) should be theSameInstanceAs node22State0
+    found.get(22, state1.id()) shouldBe null
+    found.close()
+  }
+
   test("canonical lookup is shared by both bidirectional frontiers") {
     val found = new FoundNodes(new LocalMemoryTracker(), SearchMode.Bidirectional, 2, PPBFSHooks.NULL)
     val forward = nodeState(11, state0)
