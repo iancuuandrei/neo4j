@@ -2,9 +2,11 @@
 
 ## Status
 
-**Benchmarking.** Shared harnesses and preliminary evidence exist on
+**Reusable; direct-state-index qualification concluded.** Shared harnesses and evidence exist on
 [`research/ppbfs-lab`](https://github.com/iancuuandrei/neo4j/tree/research/ppbfs-lab),
-but the complete multi-fork, multi-topology qualification is unfinished.
+and the direct-state-index family stopped after every candidate failed the
+fixed-memory gate. Multi-topology work was intentionally not run after that
+decisive rejection.
 
 ## Philosophy
 
@@ -87,5 +89,5 @@ branch. Large raw runs, JFR recordings, stores, and distributions live in the
 external artifact hierarchy and are referenced by metadata/checksum rather than
 copied into portfolio documents.
 
-The direct-state-index case study records current experimental observations and
-explicitly separates them from validated impact.
+The direct-state-index case study records the final measured NO-GO and
+explicitly separates unrun broader qualification from executed proof.

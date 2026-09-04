@@ -5,7 +5,7 @@
       "slug": "ppbfs-direct-state-index",
       "title": "Direct PPBFS product-state lookup",
       "area": "StatefulShortestPath / PPBFS",
-      "status": "benchmarking",
+      "status": "rejected",
       "branch": "contrib/ppbfs-direct-state-index",
       "branchUrl": "https://github.com/iancuuandrei/neo4j/tree/contrib/ppbfs-direct-state-index",
       "researchBranch": "research/ppbfs-lab",
@@ -13,7 +13,7 @@
       "upstreamIssue": null,
       "upstreamPR": null,
       "mergedCommit": null,
-      "validatedImpact": null
+      "validatedImpact": "NO-GO: C1, C2, and C3 fail the 92 MiB transaction-memory gate that baseline passes"
     },
     {
       "slug": "ppbfs-frontier-work-selection",

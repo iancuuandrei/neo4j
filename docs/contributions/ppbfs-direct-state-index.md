@@ -2,11 +2,12 @@
 
 ## Status
 
-**Benchmarking.** An experimental implementation exists on
+**Rejected after benchmark qualification.** Experimental implementations remain on
 [`research/ppbfs-lab`](https://github.com/iancuuandrei/neo4j/tree/research/ppbfs-lab).
 The clean [`contrib/ppbfs-direct-state-index`](https://github.com/iancuuandrei/neo4j/tree/contrib/ppbfs-direct-state-index)
 branch is prepared from upstream but intentionally contains no implementation
-commit yet. Nothing has been submitted upstream.
+commit. Nothing has been submitted upstream, and the measured result does not
+justify an issue or pull request.
 
 ## Summary
 
@@ -14,7 +15,8 @@ This investigation asks whether PPBFS should maintain one direct repository from
 `(data node ID, NFA state ID)` to its canonical `NodeState`, instead of searching
 historical BFS-level maps on some encounters. The implementation will graduate to
 the contribution branch only if correctness, latency, memory, regression, and
-statistical gates all pass.
+statistical gates all pass. No tested representation passed the identical-limit
+memory gate, so unchanged upstream remains the selected design.
 
 For shared architecture and experiment context, see the
 [PPBFS Research Lab](../research/ppbfs-lab.md).
@@ -65,11 +67,9 @@ path tracing, or result enumeration.
 
 ## Design
 
-The first experimental candidate uses a heap-tracked primitive-long outer map and
-dense NFA-state buckets as the canonical repository. Active frontiers remain
-separate structural indexes for level progression. Retired frontier structures
-can release their collection memory while canonical `NodeState` references remain
-owned for the query lifetime.
+Three heap-tracked canonical repositories were tested: dense node-major buckets,
+state-major primitive maps, and adaptive node-major inline-sparse/dense buckets.
+Active frontiers remained separate structural indexes for level progression.
 
 ## Alternatives considered
 
@@ -78,12 +78,17 @@ owned for the query lifetime.
 - Sparse/dense adaptive buckets: potentially better for sparse large NFAs, but justified only if measured dense-bucket memory fails the gate.
 - No change: required outcome if broad correctness/performance/memory gates do not pass.
 
-No adaptive or sparse candidate has been implemented because current evidence has
-not shown a memory problem requiring that added complexity.
+The adaptive candidate was triggered only after the state-major form left both
+memory and performance weaknesses. It used the simplest two-tier sparse-to-dense
+design; the optional middle map was prohibited after the first memory gate failed.
 
 ## Implementation
 
-Experimental commit: [`caf33be9f5d`](https://github.com/iancuuandrei/neo4j/commit/caf33be9f5de2d8d7f4a291abd466cf808aaf801).
+Experimental commits include C1
+[`caf33be9f5d`](https://github.com/iancuuandrei/neo4j/commit/caf33be9f5de2d8d7f4a291abd466cf808aaf801),
+C2 [`ddb62158229`](https://github.com/iancuuandrei/neo4j/commit/ddb621582297ed21a6c46c03889a1914a4115caa),
+and C3
+[`bb48edd50d1`](https://github.com/iancuuandrei/neo4j/commit/bb48edd50d1991b3c7fa9f255b7122d4ffd0146a).
 
 Relevant experimental files are limited to the PPBFS runtime utility and its
 tests/hooks. Required invariants include one object reference per product-state
@@ -93,10 +98,12 @@ operator compatibility.
 
 ## Correctness
 
-**Experimental:** Focused baseline and candidate PPBFS suites passed locally, and
-paired roadNet-PA queries returned identical path-length multisets. These checks
-are not yet the full required differential, bidirectional, cancellation,
-near-memory-limit, and runtime-spec qualification.
+**Validated locally:** The final C3-focused run executed 118 tests with zero
+failures/errors and five existing skips. It covered canonical identity,
+promotion, duplicate rejection, bidirectional sharing, frontier retirement,
+early close, interruption cleanup, and generated differential cases. Paired
+roadNet-PA queries returned identical path-length multisets whenever they ran
+within the configured limit.
 
 ## Benchmark methodology
 
@@ -114,7 +121,7 @@ protocol and incomplete-work inventory.
 
 ## Results
 
-The following are **experimental local observations, not validated impact**:
+The following are **measured local results**:
 
 | Evidence | Baseline | Candidate | Interpretation |
 | --- | ---: | ---: | --- |
@@ -122,18 +129,18 @@ The following are **experimental local observations, not validated impact**:
 | JFR samples containing `FoundNodes.get` | 468 / 919 (50.9%) | 2 / 817 (0.24%) | Time moved out of the suspected method in this controlled run |
 | Matched 772-hop PROFILE time | ~31.55 s | ~5.59 s | Single plan-verified observation; identical 6,127,334 DB hits |
 | Matched PROFILE memory | 1,042,920,640 B | 1,035,462,144 B | No memory increase in this observation |
-| First formal fork, 250 / 500 / 772 hops | baseline | 4.38× / 7.49× / 13.04× faster | One paired JVM fork only; insufficient for a statistical claim |
+| Five-fork deep aggregate, 250 / 500 / 772 hops | baseline | 4.373×, 95% CI [2.126×, 8.993×] | Significant on one real graph |
+| Fixed d250 transaction-memory gate | PASS at 92 MiB | C1 FAIL at 92; C2 FAIL at 92/93; C3 FAIL at 92 | Mandatory gate rejects every candidate |
 
-No validated headline impact is reported because additional JVM forks, real
-topologies, common-case regressions, memory limits, and confidence intervals are
-unfinished.
+The validated headline is negative: no direct repository is admissible under
+the baseline-preserving memory contract.
 
 ## Regressions and trade-offs
 
-- Shallow cases may pay direct insertion/global-map costs; systematic common-case results are pending.
-- Dense buckets may be inefficient for large sparse NFAs; occupancy and near-limit tests are pending.
-- Global-map resizing and cache locality have not been fully characterized.
-- The canonical layout changes structural memory lifetime and therefore carries medium invariant risk.
+- C1 first passed the depth-250 query at 93 MiB; B0 passed at 92 MiB.
+- C2 first passed at 94 MiB and retained only 85.6% of C1 deep performance in screening.
+- C3 capacity 2 failed at 92 MiB; the fail-fast rule stopped timing and crossover work.
+- Higher-repetition shallow C1 timing had a favorable 1.182× point estimate but a wide 95% interval `[0.870×,1.606×]`.
 
 ## Upstream process
 
@@ -141,7 +148,7 @@ unfinished.
 Issue: Not submitted upstream
 PR: Not submitted upstream
 Maintainer feedback: None
-Final outcome: Pending benchmark validation
+Final outcome: NO-GO — memory regression is unacceptable
 ```
 
 ## Relevant links
@@ -151,3 +158,4 @@ Final outcome: Pending benchmark validation
 - [Research source audit](https://github.com/iancuuandrei/neo4j/blob/research/ppbfs-lab/research/ppbfs/state-index/reports/SOURCE_AUDIT.md)
 - [Mathematical model](https://github.com/iancuuandrei/neo4j/blob/research/ppbfs-lab/research/ppbfs/state-index/reports/MATHEMATICAL_MODEL.md)
 - [Experimental log](https://github.com/iancuuandrei/neo4j/blob/research/ppbfs-lab/research/ppbfs/state-index/reports/EXPERIMENT_LOG.md)
+- [Final benchmark report](https://github.com/iancuuandrei/neo4j/blob/research/ppbfs-lab/research/ppbfs/state-index/BENCHMARK_REPORT.md)

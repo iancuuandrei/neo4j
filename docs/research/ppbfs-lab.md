@@ -2,8 +2,9 @@
 
 ## Status
 
-**Active research / benchmarking.** Experimental code and local evidence exist;
-no PPBFS change from this lab has been proposed or accepted upstream.
+**Active shared lab; direct-state-index experiment concluded.** Experimental
+code and local evidence exist; no PPBFS change from this lab has been proposed
+or accepted upstream.
 
 ## Scope
 
@@ -53,7 +54,7 @@ but intentionally excluded from Git.
 
 | Experiment | Status | Contribution path |
 | --- | --- | --- |
-| Direct product-state lookup | Benchmarking | [Case study](../contributions/ppbfs-direct-state-index.md) |
+| Direct product-state lookup | Rejected at memory gate | [Case study](../contributions/ppbfs-direct-state-index.md) |
 | Frontier work selection | Planned | [Case study](../contributions/ppbfs-frontier-work-selection.md) |
 | Transition dispatch | Planned | [Case study](../contributions/ppbfs-transition-dispatch.md) |
 
