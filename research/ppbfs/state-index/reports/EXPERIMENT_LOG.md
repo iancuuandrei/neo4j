@@ -138,3 +138,25 @@ analysis, near-limit tests, or multi-topology memory evidence.
 - C2 is rejected as the final design. Both the memory weakness and screening
   performance threshold trigger the conditional C3 experiment.
 - Canonical report: `state-index/results/2026-09-04/C2_ROADNET_PA.md`.
+
+## 2026-09-04 — C3 adaptive-bucket stop gate
+
+- Implemented only the predeclared simplest C3 form: node-major buckets with
+  one or two inline sparse entries and one-way promotion to a dense state array.
+- Added representation-neutral lifecycle coverage. The final focused run
+  executed 118 tests with zero failures/errors and five existing skips;
+  Spotless passed.
+- Built the actual Community distribution through the 129-module assembler in
+  06:05. The runtime-util JAR hash is
+  `A2858D5591D0B3D9948C6BC9C389F2249392A5B496FBB2ED5AEB1EB65F70051D`.
+- The first memory run recorded an abbreviated candidate SHA and is retained as
+  exploratory evidence. The canonical `v2` protocol records full baseline and
+  candidate SHAs.
+- At the identical 92 MiB startup limit, B0 returned `[250,250]`; C3 capacity 2
+  failed with 91 MiB tracked and the next 2 MiB allocation rejected.
+- The mandatory memory gate therefore rejects C3. Capacity 1, timing,
+  occupancy/crossover, allocation/GC, and a middle primitive map were not run
+  because the predeclared fail-fast rule made them non-decision-relevant.
+- B0 remains the retained design. No direct-state-index contribution branch or
+  upstream PR is justified.
+- Canonical report: `state-index/results/2026-09-04/C3_ROADNET_PA.md`.
