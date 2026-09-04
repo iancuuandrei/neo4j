@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "contributions": [
+    {
+      "slug": "ppbfs-direct-state-index",
+      "title": "Direct PPBFS product-state lookup",
+      "area": "StatefulShortestPath / PPBFS",
+      "status": "benchmarking",
+      "branch": "contrib/ppbfs-direct-state-index",
+      "branchUrl": "https://github.com/iancuuandrei/neo4j/tree/contrib/ppbfs-direct-state-index",
+      "researchBranch": "research/ppbfs-lab",
+      "researchBranchUrl": "https://github.com/iancuuandrei/neo4j/tree/research/ppbfs-lab",
+      "upstreamIssue": null,
+      "upstreamPR": null,
+      "mergedCommit": null,
+      "validatedImpact": null
+    },
+    {
+      "slug": "ppbfs-frontier-work-selection",
+      "title": "PPBFS frontier work selection",
+      "area": "StatefulShortestPath / PPBFS",
+      "status": "planned",
+      "branch": null,
+      "branchUrl": null,
+      "researchBranch": "research/ppbfs-lab",
+      "researchBranchUrl": "https://github.com/iancuuandrei/neo4j/tree/research/ppbfs-lab",
+      "upstreamIssue": null,
+      "upstreamPR": null,
+      "mergedCommit": null,
+      "validatedImpact": null
+    },
+    {
+      "slug": "ppbfs-transition-dispatch",
+      "title": "PPBFS transition dispatch",
+      "area": "StatefulShortestPath / PPBFS",
+      "status": "planned",
+      "branch": null,
+      "branchUrl": null,
+      "researchBranch": "research/ppbfs-lab",
+      "researchBranchUrl": "https://github.com/iancuuandrei/neo4j/tree/research/ppbfs-lab",
+      "upstreamIssue": null,
+      "upstreamPR": null,
+      "mergedCommit": null,
+      "validatedImpact": null
+    }
+  ]
+}
