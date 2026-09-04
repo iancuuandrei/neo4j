@@ -43,3 +43,40 @@
 This establishes a real-graph deep-path benefit and retains C1 for further
 evaluation. It does not satisfy multi-topology benefit, common-case regression,
 memory, broad correctness, or upstream-contribution gates.
+
+## 2026-09-04 — higher-repetition shallow timing
+
+- Added a reusable paired server runner with append-only D: outputs, independent
+  JVM restarts, seeded within-pair variant ordering, metadata capture, and
+  explicit baseline/candidate labels.
+- Updated the analyzer to reduce each distance to its within-fork median before
+  treating forks as independent paired units. Three analyzer regression tests pass.
+- Preserved interrupted `roadNet-PA-shallow-v1`: B0 fork 1 completed; C1 fork 1
+  was interrupted after startup and produced no CSV. No file was overwritten.
+- Completed `roadNet-PA-shallow-v2`: 5 paired JVM forks, 10 measured repetitions
+  per distance per variant, 2 full-manifest warmups, 400 validated measured
+  queries, and seeds `20260930` through `20260934`.
+- The first shallow-only analysis failed closed because the predefined deep
+  aggregate was empty. The analyzer was corrected, regression-tested, and rerun
+  over the unchanged raw inputs.
+- Shallow 10–100-hop aggregate: 1.182x speedup, 95% CI [0.870x, 1.606x], paired
+  log Cohen's dz 0.678. No distance has a point-estimate regression above 2%.
+- Fork-to-fork aggregate speedups ranged from 0.849x to 1.520x, so the interval
+  still permits a broad regression greater than 5%; the gate remains uncertain.
+- Canonical report: `state-index/results/2026-09-04/SHALLOW_ROADNET_PA.md`.
+
+## 2026-09-04 — canonical lifecycle tests
+
+- Added five direct `FoundNodes` tests for canonical identity, lookup after
+  frontier retirement, bidirectional sharing, duplicate-instance rejection,
+  illegal buffer transitions, frontier release, and scoped-memory cleanup.
+- The first two memory-test attempts failed because they assumed global tracked
+  memory increased monotonically across frontier commits. The final assertion
+  measures the actual boundary: old frontier plus next buffer before commit,
+  then lower memory after the old frontier is retired while canonical lookup
+  remains valid.
+- Final `FoundNodesTest`: 5 tests, 0 failures/errors/skips, 1:02 Maven runtime.
+- Existing `PGPathPropagatingBFSTest` in the preceding combined run: 72 tests,
+  0 failures/errors, 5 skipped. The combined run failed only in the new memory
+  assertion and is retained as negative test-design evidence.
+- Module Spotless apply/check passed after normalizing Java/Scala line endings.
