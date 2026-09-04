@@ -1,11 +1,17 @@
 # C3 adaptive product-state bucket experiment
 
-Status: accepted for experiment  
-Date: 2026-09-04  
-Owner: local Neo4j contribution workspace  
-Repository: `neo4j/neo4j`  
-Branch: `research/ppbfs-lab`  
-Authoritative upstream base: `f213380f812b820a1b312e2ea52cb3d8f1931ccc`  
+Status: accepted for experiment
+
+Date: 2026-09-04
+
+Owner: local Neo4j contribution workspace
+
+Repository: `neo4j/neo4j`
+
+Branch: `research/ppbfs-lab`
+
+Authoritative upstream base: `f213380f812b820a1b312e2ea52cb3d8f1931ccc`
+
 Research ancestry at acceptance: `f4958427680`
 
 ## Problem and trigger
