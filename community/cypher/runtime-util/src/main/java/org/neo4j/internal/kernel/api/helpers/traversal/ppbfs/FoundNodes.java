@@ -72,8 +72,8 @@ import org.neo4j.util.Preconditions;
  * </pre>
  */
 public final class FoundNodes implements AutoCloseable {
-    private final HeapTrackingArrayList<HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>>
-            history; // levelDepth x nodeId x stateId -> NodeState
+    private final HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
+            allStates; // nodeId x stateId -> NodeState
 
     private HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
             forwardFrontier; // nodeId x stateId -> NodeState
@@ -97,7 +97,7 @@ public final class FoundNodes implements AutoCloseable {
         this.memoryTracker = memoryTracker.getScopedMemoryTracker();
         this.mode = mode;
         this.hooks = hooks;
-        this.history = HeapTrackingArrayList.newArrayList(this.memoryTracker);
+        this.allStates = HeapTrackingLongObjectHashMap.createLongObjectHashMap(this.memoryTracker);
         this.forwardFrontier = HeapTrackingLongObjectHashMap.createLongObjectHashMap(this.memoryTracker);
         if (mode == SearchMode.Bidirectional) {
             this.backwardFrontier = HeapTrackingLongObjectHashMap.createLongObjectHashMap(this.memoryTracker);
@@ -108,6 +108,16 @@ public final class FoundNodes implements AutoCloseable {
 
     public void addToBuffer(NodeState nodeState) {
         Preconditions.checkState(bufferState == BufferState.OPEN, "NodeState added to closed buffer");
+        var allStatesForNode = allStates.get(nodeState.id());
+        if (allStatesForNode == null) {
+            allStatesForNode = HeapTrackingArrayList.newEmptyArrayList(nfaStateCount, memoryTracker);
+            allStates.put(nodeState.id(), allStatesForNode);
+        }
+        var existing = allStatesForNode.get(nodeState.state().id());
+        Preconditions.checkState(
+                existing == null || existing == nodeState, "Attempted to replace canonical NodeState instance");
+        allStatesForNode.set(nodeState.state().id(), nodeState);
+
         var nodeStates = frontierBuffer.get(nodeState.id());
         var newNodeBucket = nodeStates == null;
         if (nodeStates == null) {
@@ -118,37 +128,14 @@ public final class FoundNodes implements AutoCloseable {
         hooks.foundNodesBufferAdd(newNodeBucket, nfaStateCount);
     }
 
-    /** Look up a NodeState. O(N) wrt history length */
+    /** Look up a NodeState by its canonical product-state key. */
     public NodeState get(long nodeId, int stateId) {
-        var nodeState = getFromLevel(frontierBuffer, nodeId, stateId);
+        var nodeState = getFromLevel(allStates, nodeId, stateId);
         if (nodeState != null) {
-            hooks.foundNodesLookup(LookupLocation.BUFFER, 0, -1, history.size());
+            hooks.foundNodesLookup(LookupLocation.DIRECT, 0, -1, totalDepth());
             return nodeState;
         }
-
-        nodeState = getFromLevel(forwardFrontier, nodeId, stateId);
-        if (nodeState != null) {
-            hooks.foundNodesLookup(LookupLocation.FORWARD_FRONTIER, 0, -1, history.size());
-            return nodeState;
-        }
-
-        if (mode == SearchMode.Bidirectional) {
-            nodeState = getFromLevel(backwardFrontier, nodeId, stateId);
-            if (nodeState != null) {
-                hooks.foundNodesLookup(LookupLocation.BACKWARD_FRONTIER, 0, -1, history.size());
-                return nodeState;
-            }
-        }
-
-        for (int i = history.size() - 1; i >= 0; i--) {
-            nodeState = getFromLevel(history.get(i), nodeId, stateId);
-            if (nodeState != null) {
-                var historyHitAge = history.size() - i - 1;
-                hooks.foundNodesLookup(LookupLocation.HISTORY, historyHitAge + 1, historyHitAge, history.size());
-                return nodeState;
-            }
-        }
-        hooks.foundNodesLookup(LookupLocation.MISS, history.size(), -1, history.size());
+        hooks.foundNodesLookup(LookupLocation.MISS, 0, -1, totalDepth());
         return null;
     }
 
@@ -172,27 +159,28 @@ public final class FoundNodes implements AutoCloseable {
         bufferState = BufferState.OPEN;
     }
 
-    /** Shifts the previous frontier into history, and the frontier buffer into the current frontier */
+    /** Retires the previous frontier and promotes the frontier buffer. */
     public void commitBuffer(TraversalDirection direction) {
         Preconditions.checkState(bufferState == BufferState.OPEN, "Buffer closed when it was not open");
 
         switch (direction) {
             case FORWARD -> {
-                if (forwardFrontier.notEmpty()) {
-                    history.add(forwardFrontier);
-                }
+                closeLevel(forwardFrontier);
                 forwardDepth += 1;
                 forwardFrontier = frontierBuffer;
             }
             case BACKWARD -> {
-                if (backwardFrontier.notEmpty()) {
-                    history.add(backwardFrontier);
-                }
+                closeLevel(backwardFrontier);
                 backwardDepth += 1;
                 backwardFrontier = frontierBuffer;
             }
         }
         bufferState = BufferState.CLOSED;
+    }
+
+    private static void closeLevel(HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> level) {
+        level.forEachValue(HeapTrackingArrayList::close);
+        level.close();
     }
 
     public HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> frontier(TraversalDirection direction) {
@@ -265,6 +253,7 @@ public final class FoundNodes implements AutoCloseable {
         FORWARD_FRONTIER,
         BACKWARD_FRONTIER,
         HISTORY,
+        DIRECT,
         MISS
     }
 }
