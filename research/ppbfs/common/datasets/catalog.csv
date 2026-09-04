@@ -1,0 +1,7 @@
+dataset,url,sha256,status,reason
+roadNet-CA,https://snap.stanford.edu/data/roadNet-CA.txt.gz,383F7B14424530A9E25C392969A9C19DACE32EBCFD141F0967A1433498C2ACDD,downloaded,primary high-diameter road-network stress graph
+roadNet-PA,https://snap.stanford.edu/data/roadNet-PA.txt.gz,450B8733635D887466A2B96B26411F6E62CAF7006F8A264F59CF9B5D75CDF549,downloaded,independent high-diameter road-network replication
+roadNet-TX,https://snap.stanford.edu/data/roadNet-TX.txt.gz,,not-downloaded,optional third road-network replication
+web-Stanford,https://snap.stanford.edu/data/web-Stanford.txt.gz,49BFC0E366C3028DBD84E8557B09287CBD61051BDE29D160C277688C727CB679,downloaded,directed reconvergent topology
+as-Skitter,https://snap.stanford.edu/data/as-skitter.txt.gz,743D4F91FBCBCACE4A70D44D1190FE75869FAA1398D3EB73BB2D7663C2417510,downloaded,low-diameter high-fan-out negative control
+LDBC-SNB,https://github.com/ldbc/ldbc_snb_implementations,,not-downloaded,standardized property-graph regression workload; SF10 when practical
