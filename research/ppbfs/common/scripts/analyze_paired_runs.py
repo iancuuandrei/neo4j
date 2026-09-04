@@ -235,6 +235,8 @@ def analyze(
     }
     aggregates: dict[str, dict[str, Any]] = {}
     for name, selected in groups.items():
+        if not selected:
+            continue
         per_seed = []
         for seed in seeds:
             per_seed.append(

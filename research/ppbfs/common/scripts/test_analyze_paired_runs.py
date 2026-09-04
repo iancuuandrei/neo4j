@@ -52,6 +52,22 @@ class AnalyzePairedRunsTest(unittest.TestCase):
         self.assertEqual(2.0, per_distance[0]["pairedSpeedup"]["geometricMeanSpeedup"])
         self.assertEqual(2.0, aggregates["all"]["pairedSpeedup"]["geometricMeanSpeedup"])
 
+    def test_analysis_omits_empty_predefined_aggregate(self) -> None:
+        baseline = {
+            1: {10: {"elapsedNs": [100, 120], "resultLengths": (10, 11)}},
+            2: {10: {"elapsedNs": [110, 130], "resultLengths": (10, 11)}},
+        }
+        candidate = {
+            1: {10: {"elapsedNs": [90, 100], "resultLengths": (10, 11)}},
+            2: {10: {"elapsedNs": [95, 105], "resultLengths": (10, 11)}},
+        }
+
+        _, aggregates = analyze(baseline, candidate)
+
+        self.assertIn("all", aggregates)
+        self.assertIn("shallow_10_100", aggregates)
+        self.assertNotIn("deep_250_772", aggregates)
+
 
 if __name__ == "__main__":
     unittest.main()
