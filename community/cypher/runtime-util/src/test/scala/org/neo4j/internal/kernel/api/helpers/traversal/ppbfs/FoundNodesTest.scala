@@ -34,6 +34,115 @@ class FoundNodesTest extends RuntimeUtilTestSuite {
   private val stateBuilder = new PGStateBuilder
   private val state0 = stateBuilder.newState().state
   private val state1 = stateBuilder.newState().state
+  private val state2 = stateBuilder.newState().state
+
+  test("capacity one promotes on the second state while preserving canonical identity") {
+    val tracker = new LocalMemoryTracker()
+    val found = new FoundNodes(tracker, SearchMode.Unidirectional, 3, PPBFSHooks.NULL, 1)
+    val first = nodeState(11, state0)
+    val second = nodeState(11, state1)
+
+    found.openBuffer()
+    found.addToBuffer(first)
+    found.addToBuffer(second)
+
+    found.get(11, state0.id()) should be theSameInstanceAs first
+    found.get(11, state1.id()) should be theSameInstanceAs second
+    found.get(11, state2.id()) shouldBe null
+
+    found.close()
+    tracker.estimatedHeapMemory() shouldBe 0L
+  }
+
+  test("capacity two promotes on the third state while preserving sparse identities") {
+    val tracker = new LocalMemoryTracker()
+    val found = new FoundNodes(tracker, SearchMode.Unidirectional, 3, PPBFSHooks.NULL, 2)
+    val first = nodeState(11, state0)
+    val second = nodeState(11, state1)
+    val third = nodeState(11, state2)
+
+    found.openBuffer()
+    found.addToBuffer(first)
+    found.addToBuffer(second)
+    found.addToBuffer(third)
+
+    found.get(11, state0.id()) should be theSameInstanceAs first
+    found.get(11, state1.id()) should be theSameInstanceAs second
+    found.get(11, state2.id()) should be theSameInstanceAs third
+
+    found.close()
+    tracker.estimatedHeapMemory() shouldBe 0L
+  }
+
+  test("promotion retains canonical identity after retirement for both sparse capacities") {
+    Seq(1, 2).foreach { capacity =>
+      val tracker = new LocalMemoryTracker()
+      val found = new FoundNodes(tracker, SearchMode.Unidirectional, 3, PPBFSHooks.NULL, capacity)
+      val first = nodeState(11, state0)
+      val second = nodeState(11, state1)
+      val third = nodeState(11, state2)
+
+      try {
+        found.openBuffer()
+        found.addToBuffer(first)
+        found.addToBuffer(second)
+        found.addToBuffer(third)
+        found.commitBuffer(FORWARD)
+
+        found.openBuffer()
+        found.addToBuffer(nodeState(22, state0))
+        found.commitBuffer(FORWARD)
+
+        found.get(11, state0.id()) should be theSameInstanceAs first
+        found.get(11, state1.id()) should be theSameInstanceAs second
+        found.get(11, state2.id()) should be theSameInstanceAs third
+        found.frontier(FORWARD).get(11) shouldBe null
+      } finally {
+        found.close()
+      }
+      tracker.estimatedHeapMemory() shouldBe 0L
+    }
+  }
+
+  test("promotion is shared by forward and backward frontiers") {
+    Seq(1, 2).foreach { capacity =>
+      val tracker = new LocalMemoryTracker()
+      val found = new FoundNodes(tracker, SearchMode.Bidirectional, 3, PPBFSHooks.NULL, capacity)
+      val forward = nodeState(11, state0)
+      val forwardSecond = nodeState(11, state1)
+      val forwardThird = nodeState(11, state2)
+
+      try {
+        found.openBuffer()
+        found.addToBuffer(forward)
+        found.addToBuffer(forwardSecond)
+        found.addToBuffer(forwardThird)
+        found.commitBuffer(FORWARD)
+
+        found.openBuffer()
+        found.addToBuffer(forward)
+        found.addToBuffer(forwardSecond)
+        found.addToBuffer(forwardThird)
+        found.commitBuffer(BACKWARD)
+
+        found.get(11, state0.id()) should be theSameInstanceAs forward
+        found.get(11, state1.id()) should be theSameInstanceAs forwardSecond
+        found.get(11, state2.id()) should be theSameInstanceAs forwardThird
+        found.frontier(FORWARD).get(11).get(state0.id()) should be theSameInstanceAs forward
+        found.frontier(BACKWARD).get(11).get(state2.id()) should be theSameInstanceAs forwardThird
+      } finally {
+        found.close()
+      }
+      tracker.estimatedHeapMemory() shouldBe 0L
+    }
+  }
+
+  test("sparse capacity is restricted to the two predeclared experiment values") {
+    an[IllegalArgumentException] should be thrownBy
+      new FoundNodes(new LocalMemoryTracker(), SearchMode.Unidirectional, 2, PPBFSHooks.NULL, 0)
+    an[IllegalArgumentException] should be thrownBy
+      new FoundNodes(new LocalMemoryTracker(), SearchMode.Unidirectional, 2, PPBFSHooks.NULL, 3)
+  }
 
   test("canonical lookup retains the same NodeState after its frontier is retired") {
     val found = new FoundNodes(new LocalMemoryTracker(), SearchMode.Unidirectional, 2, PPBFSHooks.NULL)
@@ -122,24 +231,24 @@ class FoundNodesTest extends RuntimeUtilTestSuite {
     val tracker = new LocalMemoryTracker()
     val found = new FoundNodes(tracker, SearchMode.Unidirectional, 2, PPBFSHooks.NULL)
     val afterConstruction = tracker.estimatedHeapMemory()
+    val first = nodeState(11, state0)
 
     found.openBuffer()
-    found.addToBuffer(nodeState(11, state0))
+    found.addToBuffer(first)
     found.commitBuffer(FORWARD)
-    val withFirstCanonicalAndFrontier = tracker.estimatedHeapMemory()
+    val beforeRetirement = tracker.estimatedHeapMemory()
 
     found.openBuffer()
-    found.addToBuffer(nodeState(22, state1))
-    val beforeRetirement = tracker.estimatedHeapMemory()
     found.commitBuffer(FORWARD)
     val afterRetirement = tracker.estimatedHeapMemory()
 
     afterConstruction should be > 0L
-    withFirstCanonicalAndFrontier should be > 0L
-    beforeRetirement should be > withFirstCanonicalAndFrontier
-    // Commit retains both canonical entries but releases the retired frontier's structural allocation.
+    beforeRetirement should be > 0L
+    // An empty next buffer isolates retirement of the old frontier from canonical repository growth.
     afterRetirement should be > 0L
     afterRetirement should be < beforeRetirement
+    found.frontier(FORWARD).isEmpty shouldBe true
+    found.get(11, state0.id()) should be theSameInstanceAs first
 
     found.close()
     tracker.estimatedHeapMemory() shouldBe 0L

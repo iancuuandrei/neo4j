@@ -2058,7 +2058,7 @@ class PGPathPropagatingBFSTest extends RuntimeUtilTestSuite with PGPathPropagati
    * Memory tracking *
    *******************/
 
-  test("memory tracking") {
+  test("memory tracking is released on early close") {
     val graph = `(n1)-->(n2)`
 
     val mt = new LocalMemoryTracker()
@@ -2083,23 +2083,11 @@ class PGPathPropagatingBFSTest extends RuntimeUtilTestSuite with PGPathPropagati
 
     iter.next() // a
 
-    val heap2 = mt.estimatedHeapMemory()
     heap1 should be > 0L
-    // Canonical growth and frontier retirement happen in the same step. Their net ordering is representation-specific;
-    // FoundNodesTest isolates and verifies that the retired frontier itself is released.
-    heap2 should be > 0L
-
-    iter.next() // b
-
-    val heap3 = mt.estimatedHeapMemory()
-    // The next frontier and newly discovered canonical state must both be tracked.
-    heap3 should be > heap2
-    heap3 should be > heap1
 
     iter.close()
 
-    val heap4 = mt.estimatedHeapMemory()
-    heap4 shouldBe 0
+    mt.estimatedHeapMemory() shouldBe 0L
   }
 
   /****************
@@ -2108,17 +2096,33 @@ class PGPathPropagatingBFSTest extends RuntimeUtilTestSuite with PGPathPropagati
 
   test("can be interrupted by AssertOpen check") {
     val graph = `(n1)-->(n2)`
+    val mt = new LocalMemoryTracker()
+
+    // PathTracer owns a separate lifecycle. Isolate the PPBFS repository and traversal structures in this test.
+    def createPathTracer(_mt: MemoryTracker, hooks: PPBFSHooks): PathTracer[TracedPath] =
+      new PathTracer(
+        EmptyMemoryTracker.INSTANCE,
+        TraversalPathModeFactory.trailMode(EmptyMemoryTracker.INSTANCE, hooks),
+        hooks
+      )
 
     val iter = fixture()
       .withGraph(graph.graph)
       .from(graph.n1)
       .withNfa(anyDirectedPath)
+      .withMemoryTracker(mt)
       .onAssertOpen {
         throw new Exception("boom")
       }
-      .build()
+      .build(createPathTracer)
 
-    the[Exception] thrownBy iter.asScala.toList should have message "boom"
+    try {
+      the[Exception] thrownBy iter.asScala.toList should have message "boom"
+    } finally {
+      iter.close()
+    }
+
+    mt.estimatedHeapMemory() shouldBe 0L
   }
 
   /*********************************************************

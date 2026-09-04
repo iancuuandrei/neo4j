@@ -37,18 +37,21 @@ import org.neo4j.util.Preconditions;
  * backward frontiers contain only states eligible for the next expansion in that direction. {@code frontierBuffer}
  * collects the next frontier while the current frontier is being iterated.
  *
- * <p>The canonical repository is partitioned by sequential NFA state id; each occupied partition maps data-node id to
- * its canonical NodeState. Frontier collections retain the node-id map and dense state-array layout needed by product
- * graph expansion. A state is registered in the canonical repository before its buffer entry becomes visible, so
- * recursive juxtaposition processing can resolve the same instance. Retiring a frontier releases only its scheduling
- * structures; canonical lookup ownership lasts until this repository is closed.
+ * <p>The canonical repository maps each data-node id to a {@link StateBucket}. A bucket keeps the first one or two
+ * states inline and promotes to a dense state-id indexed array when its sparse capacity is exceeded. Frontier
+ * collections retain the node-id map and dense state-array layout needed by product graph expansion. A state is
+ * registered in the canonical repository before its buffer entry becomes visible, so recursive juxtaposition
+ * processing can resolve the same instance. Retiring a frontier releases only its scheduling structures; canonical
+ * lookup ownership lasts until this repository is closed.
  *
  * <p>Bidirectional search has distinct forward and backward frontiers but shares one buffer because only one direction
  * expands at a time. Both directions share the canonical product-state repository.
  */
 public final class FoundNodes implements AutoCloseable {
-    private final HeapTrackingArrayList<HeapTrackingLongObjectHashMap<NodeState>>
-            allStates; // stateId x nodeId -> NodeState
+    static final String SPARSE_CAPACITY_PROPERTY = "neo4j.ppbfs.state-bucket.sparse-capacity";
+    private static final int DEFAULT_SPARSE_CAPACITY = 2;
+
+    private final HeapTrackingLongObjectHashMap<StateBucket> allStates; // nodeId -> state bucket
 
     private HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
             forwardFrontier; // nodeId x stateId -> NodeState
@@ -63,16 +66,27 @@ public final class FoundNodes implements AutoCloseable {
     private final PPBFSHooks hooks;
     private final SearchMode mode;
     private final int nfaStateCount;
+    private final int sparseCapacity;
 
     private int forwardDepth = 0;
 
     private int backwardDepth = 0;
 
     public FoundNodes(MemoryTracker memoryTracker, SearchMode mode, int nfaStateCount, PPBFSHooks hooks) {
+        this(memoryTracker, mode, nfaStateCount, hooks, configuredSparseCapacity());
+    }
+
+    FoundNodes(MemoryTracker memoryTracker, SearchMode mode, int nfaStateCount, PPBFSHooks hooks, int sparseCapacity) {
+        Preconditions.checkArgument(
+                sparseCapacity == 1 || sparseCapacity == 2,
+                "Sparse state bucket capacity must be 1 or 2, was %d",
+                sparseCapacity);
+        Preconditions.checkArgument(nfaStateCount > 0, "NFA state count must be positive, was %d", nfaStateCount);
         this.memoryTracker = memoryTracker.getScopedMemoryTracker();
         this.mode = mode;
         this.hooks = hooks;
-        this.allStates = HeapTrackingArrayList.newEmptyArrayList(nfaStateCount, this.memoryTracker);
+        this.sparseCapacity = sparseCapacity;
+        this.allStates = HeapTrackingLongObjectHashMap.createLongObjectHashMap(this.memoryTracker);
         this.forwardFrontier = HeapTrackingLongObjectHashMap.createLongObjectHashMap(this.memoryTracker);
         if (mode == SearchMode.Bidirectional) {
             this.backwardFrontier = HeapTrackingLongObjectHashMap.createLongObjectHashMap(this.memoryTracker);
@@ -83,15 +97,18 @@ public final class FoundNodes implements AutoCloseable {
 
     public void addToBuffer(NodeState nodeState) {
         Preconditions.checkState(bufferState == BufferState.OPEN, "NodeState added to closed buffer");
-        var allStatesForState = allStates.get(nodeState.state().id());
-        if (allStatesForState == null) {
-            allStatesForState = HeapTrackingLongObjectHashMap.createLongObjectHashMap(memoryTracker);
-            allStates.set(nodeState.state().id(), allStatesForState);
+        var stateId = nodeState.state().id();
+        Preconditions.checkArgument(
+                stateId >= 0 && stateId < nfaStateCount,
+                "NFA state id must be in [0, %d), was %d",
+                nfaStateCount,
+                stateId);
+        var allStatesForNode = allStates.get(nodeState.id());
+        if (allStatesForNode == null) {
+            allStatesForNode = new StateBucket(memoryTracker, nfaStateCount, sparseCapacity);
+            allStates.put(nodeState.id(), allStatesForNode);
         }
-        var existing = allStatesForState.get(nodeState.id());
-        Preconditions.checkState(
-                existing == null || existing == nodeState, "Attempted to replace canonical NodeState instance");
-        allStatesForState.put(nodeState.id(), nodeState);
+        allStatesForNode.put(stateId, nodeState);
 
         var nodeStates = frontierBuffer.get(nodeState.id());
         var newNodeBucket = nodeStates == null;
@@ -105,8 +122,13 @@ public final class FoundNodes implements AutoCloseable {
 
     /** Look up a NodeState by its canonical product-state key. */
     public NodeState get(long nodeId, int stateId) {
-        var allStatesForState = allStates.get(stateId);
-        var nodeState = allStatesForState == null ? null : allStatesForState.get(nodeId);
+        Preconditions.checkArgument(
+                stateId >= 0 && stateId < nfaStateCount,
+                "NFA state id must be in [0, %d), was %d",
+                nfaStateCount,
+                stateId);
+        var allStatesForNode = allStates.get(nodeId);
+        var nodeState = allStatesForNode == null ? null : allStatesForNode.get(stateId);
         if (nodeState != null) {
             hooks.foundNodesLookup(LookupLocation.DIRECT, 0, -1, totalDepth());
             return nodeState;
@@ -231,5 +253,21 @@ public final class FoundNodes implements AutoCloseable {
         HISTORY,
         DIRECT,
         MISS
+    }
+
+    private static int configuredSparseCapacity() {
+        var value = System.getProperty(SPARSE_CAPACITY_PROPERTY);
+        if (value == null) {
+            return DEFAULT_SPARSE_CAPACITY;
+        }
+        try {
+            var parsed = Integer.parseInt(value);
+            Preconditions.checkArgument(
+                    parsed == 1 || parsed == 2, "%s must be 1 or 2, was %s", SPARSE_CAPACITY_PROPERTY, value);
+            return parsed;
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                    "%s must be 1 or 2, was %s".formatted(SPARSE_CAPACITY_PROPERTY, value), e);
+        }
     }
 }
