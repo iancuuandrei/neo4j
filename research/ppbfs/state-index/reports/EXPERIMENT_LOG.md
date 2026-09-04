@@ -80,3 +80,22 @@ memory, broad correctness, or upstream-contribution gates.
   0 failures/errors, 5 skipped. The combined run failed only in the new memory
   assertion and is retained as negative test-design evidence.
 - Module Spotless apply/check passed after normalizing Java/Scala line endings.
+
+## 2026-09-04 — plan-verified tracked-memory profile
+
+- Extended the HTTP harness to preserve raw `PROFILE` response JSONL before
+  validation and to emit a compact per-query operator summary.
+- Two parser attempts failed closed and are preserved: v2 expected the bare
+  operator name and wrote no raw response; v3 exposed the actual `plan.root`
+  wrapper and `@neo4j` operator suffix while preserving the first raw response.
+- The corrected v4 capture accepted only nested operators whose observed name
+  begins with `StatefulShortestPath`, and completed all seven pairs for B0/C1.
+- Result lengths and operator DB hits match exactly at every distance.
+- C1 operator tracked-memory deltas range from -2.91% to +1.46% on shallow
+  pairs and from -0.84% to +0.34% on deep pairs. Every observed value is within
+  the preferred 5% shallow and 10% benefited-deep gates.
+- Canonical report: `state-index/results/2026-09-04/MEMORY_PROFILE_ROADNET_PA.md`.
+
+This is one plan-profile pass on one graph. It supports the memory gate for the
+observed workload, but does not replace JOL/HeapEstimator validation, occupancy
+analysis, near-limit tests, or multi-topology memory evidence.
