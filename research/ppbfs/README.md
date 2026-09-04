@@ -15,6 +15,12 @@ implementations, benchmark tooling, and research reports. It is never submitted
 as an upstream pull request. A successful experiment graduates to a clean
 `contrib/*` branch created directly from the authoritative upstream branch.
 
+Paired Neo4j-server experiments use
+`common/scripts/run_paired_server_experiment.ps1`. It enforces D:-resident large
+inputs/outputs, independently restarted JVM forks, seeded within-pair variant
+ordering, metadata capture, and append-only output names. Analyze retained runs
+with `common/scripts/analyze_paired_runs.py`.
+
 ## Layout
 
 - `common/`: shared datasets, manifests, queries, and variant-neutral scripts.

@@ -92,18 +92,27 @@ def summarize_speedups(speedups: list[float]) -> dict[str, float | int]:
 
 def load_csv(path: Path) -> dict[int, dict[str, Any]]:
     by_distance: dict[int, dict[str, Any]] = {}
+    seen: set[tuple[int, int]] = set()
     with path.open(encoding="utf-8", newline="") as source:
         rows = list(csv.DictReader(source))
     if not rows:
         raise ValueError(f"No measurements in {path}")
     for row in rows:
         distance = int(row["distance"])
-        if distance in by_distance:
-            raise ValueError(f"Expected one measured repetition per distance in {path}: {distance}")
-        by_distance[distance] = {
-            "elapsedNs": int(row["elapsed_ns"]),
-            "resultLengths": tuple(int(value) for value in row["result_lengths"].split(";")),
-        }
+        repetition = int(row["repetition"])
+        key = (distance, repetition)
+        if key in seen:
+            raise ValueError(f"Duplicate distance/repetition in {path}: {key}")
+        seen.add(key)
+        lengths = tuple(int(value) for value in row["result_lengths"].split(";"))
+        entry = by_distance.setdefault(distance, {"elapsedNs": [], "resultLengths": lengths})
+        if entry["resultLengths"] != lengths:
+            raise ValueError(f"Result drift within {path} at distance {distance}")
+        entry["elapsedNs"].append(int(row["elapsed_ns"]))
+
+    repetition_counts = {len(entry["elapsedNs"]) for entry in by_distance.values()}
+    if len(repetition_counts) != 1:
+        raise ValueError(f"Repetition-count drift in {path}: {sorted(repetition_counts)}")
     return by_distance
 
 
@@ -116,6 +125,7 @@ def discover_runs(
     }
     common_hashes: dict[str, set[str]] = defaultdict(set)
     runtime_hashes: dict[str, set[str]] = defaultdict(set)
+    protocol_values: dict[str, set[int]] = defaultdict(set)
 
     for metadata_path in sorted(runs_dir.glob("*.metadata.json")):
         metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
@@ -132,6 +142,8 @@ def discover_runs(
         for key in ("dataset", "queryManifest", "config"):
             common_hashes[key].add(metadata["inputs"][key]["sha256"])
         runtime_hashes[variant_sha].add(metadata["inputs"]["distribution"]["runtimeJar"]["sha256"])
+        for key in ("warmups", "repetitions"):
+            protocol_values[key].add(int(metadata["protocol"][key]))
 
     for name, hashes in common_hashes.items():
         if len(hashes) != 1:
@@ -139,6 +151,9 @@ def discover_runs(
     for variant_sha, hashes in runtime_hashes.items():
         if len(hashes) != 1:
             raise ValueError(f"Runtime JAR drift for {variant_sha}: {sorted(hashes)}")
+    for name, values in protocol_values.items():
+        if len(values) != 1:
+            raise ValueError(f"Protocol drift for {name}: {sorted(values)}")
 
     baseline_seeds = set(variants[baseline_sha])
     candidate_seeds = set(variants[candidate_sha])
@@ -154,6 +169,7 @@ def discover_runs(
         "seeds": sorted(baseline_seeds),
         "inputHashes": {name: next(iter(hashes)) for name, hashes in common_hashes.items()},
         "runtimeJarHashes": {sha: next(iter(hashes)) for sha, hashes in runtime_hashes.items()},
+        "protocol": {name: next(iter(values)) for name, values in protocol_values.items()},
     }
     return variants[baseline_sha], variants[candidate_sha], binding
 
@@ -182,9 +198,11 @@ def analyze(
                     f"Result mismatch seed={seed} distance={distance}: "
                     f"{before['resultLengths']} vs {after['resultLengths']}"
                 )
-            baseline_ms.append(before["elapsedNs"] / 1_000_000)
-            candidate_ms.append(after["elapsedNs"] / 1_000_000)
-            speedups.append(before["elapsedNs"] / after["elapsedNs"])
+            before_median = statistics.median(before["elapsedNs"])
+            after_median = statistics.median(after["elapsedNs"])
+            baseline_ms.append(before_median / 1_000_000)
+            candidate_ms.append(after_median / 1_000_000)
+            speedups.append(before_median / after_median)
         per_distance.append(
             {
                 "distance": distance,
@@ -221,7 +239,8 @@ def analyze(
         for seed in seeds:
             per_seed.append(
                 geometric_mean(
-                    baseline[seed][distance]["elapsedNs"] / candidate[seed][distance]["elapsedNs"]
+                    statistics.median(baseline[seed][distance]["elapsedNs"])
+                    / statistics.median(candidate[seed][distance]["elapsedNs"])
                     for distance in selected
                 )
             )
@@ -234,16 +253,19 @@ def analyze(
 
 
 def markdown_report(result: dict[str, Any]) -> str:
+    baseline_label = result["baselineLabel"]
+    candidate_label = result["candidateLabel"]
     lines = [
-        "# Paired roadNet-PA PPBFS timing analysis",
+        f"# {result['title']}",
         "",
         "**MEASURED:** Warm-cache HTTP end-to-end timings from metadata-bound JVM forks.",
-        "Speedup is baseline elapsed time divided by C1 elapsed time. Confidence",
-        "intervals are two-sided 95% Student-t intervals over paired log speedups.",
+        f"Speedup is {baseline_label} elapsed time divided by {candidate_label} elapsed time.",
+        "Confidence intervals are two-sided 95% Student-t intervals over paired",
+        "log speedups of per-fork medians.",
         "",
         f"Paired seeds: `{', '.join(map(str, result['binding']['seeds']))}`",
         "",
-        "| Distance | B0 median ms | C1 median ms | Geomean speedup | 95% CI | Min–max |",
+        f"| Distance | {baseline_label} median ms | {candidate_label} median ms | Geomean speedup | 95% CI | Min–max |",
         "| ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for row in result["perDistance"]:
@@ -279,6 +301,9 @@ def main() -> None:
     parser.add_argument("runs_dir", type=Path)
     parser.add_argument("--baseline-sha", required=True)
     parser.add_argument("--candidate-sha", required=True)
+    parser.add_argument("--title", default="Paired PPBFS timing analysis")
+    parser.add_argument("--baseline-label", default="baseline")
+    parser.add_argument("--candidate-label", default="candidate")
     parser.add_argument("--output-json", type=Path, required=True)
     parser.add_argument("--output-markdown", type=Path, required=True)
     args = parser.parse_args()
@@ -293,6 +318,9 @@ def main() -> None:
         "method": "paired log speedup with two-sided 95% Student-t confidence interval",
         "baselineVariantSha": args.baseline_sha,
         "candidateVariantSha": args.candidate_sha,
+        "title": args.title,
+        "baselineLabel": args.baseline_label,
+        "candidateLabel": args.candidate_label,
         "binding": binding,
         "perDistance": per_distance,
         "aggregates": aggregates,

@@ -1,0 +1,57 @@
+from __future__ import annotations
+
+import csv
+import tempfile
+import unittest
+from pathlib import Path
+
+from analyze_paired_runs import analyze, load_csv
+
+
+class AnalyzePairedRunsTest(unittest.TestCase):
+    def test_load_csv_groups_repetitions_without_treating_them_as_forks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "run.csv"
+            with path.open("w", encoding="utf-8", newline="") as output:
+                writer = csv.writer(output)
+                writer.writerow(
+                    ("order", "repetition", "source", "target", "distance", "elapsed_ns", "result_lengths")
+                )
+                writer.writerow((0, 0, 1, 2, 10, 100, "10;11"))
+                writer.writerow((1, 1, 1, 2, 10, 300, "10;11"))
+
+            loaded = load_csv(path)
+
+        self.assertEqual([100, 300], loaded[10]["elapsedNs"])
+        self.assertEqual((10, 11), loaded[10]["resultLengths"])
+
+    def test_analysis_pairs_independent_fork_medians(self) -> None:
+        baseline = {
+            1: {
+                10: {"elapsedNs": [100, 300], "resultLengths": (10, 11)},
+                250: {"elapsedNs": [800, 1200], "resultLengths": (250, 251)},
+            },
+            2: {
+                10: {"elapsedNs": [200, 400], "resultLengths": (10, 11)},
+                250: {"elapsedNs": [1000, 1400], "resultLengths": (250, 251)},
+            },
+        }
+        candidate = {
+            1: {
+                10: {"elapsedNs": [50, 150], "resultLengths": (10, 11)},
+                250: {"elapsedNs": [400, 600], "resultLengths": (250, 251)},
+            },
+            2: {
+                10: {"elapsedNs": [100, 200], "resultLengths": (10, 11)},
+                250: {"elapsedNs": [500, 700], "resultLengths": (250, 251)},
+            },
+        }
+
+        per_distance, aggregates = analyze(baseline, candidate)
+
+        self.assertEqual(2.0, per_distance[0]["pairedSpeedup"]["geometricMeanSpeedup"])
+        self.assertEqual(2.0, aggregates["all"]["pairedSpeedup"]["geometricMeanSpeedup"])
+
+
+if __name__ == "__main__":
+    unittest.main()
