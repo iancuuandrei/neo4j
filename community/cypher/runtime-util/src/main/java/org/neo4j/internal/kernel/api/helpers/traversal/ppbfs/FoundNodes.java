@@ -72,8 +72,21 @@ import org.neo4j.util.Preconditions;
  * </pre>
  */
 public final class FoundNodes implements AutoCloseable {
+    static final int ACTIVATION_HISTORY_DEPTH = 8;
+
     private final HeapTrackingArrayList<HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>>
-            history; // levelDepth x nodeId x stateId -> NodeState
+            history; // frozen after activation: levelDepth x nodeId x stateId -> NodeState
+
+    private HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
+            retiredIndex; // post-activation nodeId x stateId -> NodeState
+    private boolean activated;
+    private long lookupCount;
+    private long lookupCountAtActivation;
+    private long retiredIndexHits;
+    private long retiredIndexMisses;
+    private long frozenHistoryProbes;
+    private long transferredBuckets;
+    private long mergedBuckets;
 
     private HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
             forwardFrontier; // nodeId x stateId -> NodeState
@@ -114,12 +127,16 @@ public final class FoundNodes implements AutoCloseable {
             nodeStates = HeapTrackingArrayList.newEmptyArrayList(nfaStateCount, memoryTracker);
             frontierBuffer.put(nodeState.id(), nodeStates);
         }
+        var existing = nodeStates.get(nodeState.state().id());
+        Preconditions.checkState(
+                existing == null || existing == nodeState, "Attempted to replace canonical NodeState instance");
         nodeStates.set(nodeState.state().id(), nodeState);
         hooks.foundNodesBufferAdd(newNodeBucket, nfaStateCount);
     }
 
     /** Look up a NodeState. O(N) wrt history length */
     public NodeState get(long nodeId, int stateId) {
+        lookupCount += 1;
         var nodeState = getFromLevel(frontierBuffer, nodeId, stateId);
         if (nodeState != null) {
             hooks.foundNodesLookup(LookupLocation.BUFFER, 0, -1, history.size());
@@ -140,13 +157,35 @@ public final class FoundNodes implements AutoCloseable {
             }
         }
 
+        if (activated && retiredIndex != null) {
+            nodeState = getFromLevel(retiredIndex, nodeId, stateId);
+            if (nodeState != null) {
+                retiredIndexHits += 1;
+                hooks.foundNodesC4Lookup(true, 0);
+                hooks.foundNodesLookup(LookupLocation.RETIRED_INDEX, 0, -1, history.size());
+                return nodeState;
+            }
+            retiredIndexMisses += 1;
+        }
+
+        var postActivationHistoryProbes = 0;
         for (int i = history.size() - 1; i >= 0; i--) {
+            if (activated) {
+                frozenHistoryProbes += 1;
+                postActivationHistoryProbes += 1;
+            }
             nodeState = getFromLevel(history.get(i), nodeId, stateId);
             if (nodeState != null) {
+                if (activated) {
+                    hooks.foundNodesC4Lookup(false, postActivationHistoryProbes);
+                }
                 var historyHitAge = history.size() - i - 1;
                 hooks.foundNodesLookup(LookupLocation.HISTORY, historyHitAge + 1, historyHitAge, history.size());
                 return nodeState;
             }
+        }
+        if (activated) {
+            hooks.foundNodesC4Lookup(false, postActivationHistoryProbes);
         }
         hooks.foundNodesLookup(LookupLocation.MISS, history.size(), -1, history.size());
         return null;
@@ -172,27 +211,129 @@ public final class FoundNodes implements AutoCloseable {
         bufferState = BufferState.OPEN;
     }
 
-    /** Shifts the previous frontier into history, and the frontier buffer into the current frontier */
+    /** Retires the previous frontier and promotes the frontier buffer. */
     public void commitBuffer(TraversalDirection direction) {
         Preconditions.checkState(bufferState == BufferState.OPEN, "Buffer closed when it was not open");
 
         switch (direction) {
             case FORWARD -> {
-                if (forwardFrontier.notEmpty()) {
-                    history.add(forwardFrontier);
-                }
+                retire(forwardFrontier);
                 forwardDepth += 1;
                 forwardFrontier = frontierBuffer;
             }
             case BACKWARD -> {
-                if (backwardFrontier.notEmpty()) {
-                    history.add(backwardFrontier);
-                }
+                retire(backwardFrontier);
                 backwardDepth += 1;
                 backwardFrontier = frontierBuffer;
             }
         }
         bufferState = BufferState.CLOSED;
+    }
+
+    private void retire(HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> retiringFrontier) {
+        if (!activated && history.size() >= ACTIVATION_HISTORY_DEPTH && retiringFrontier.notEmpty()) {
+            activated = true;
+            lookupCountAtActivation = lookupCount;
+            retiredIndex = retiringFrontier;
+            transferredBuckets += retiringFrontier.size();
+            hooks.foundNodesC4Activation(
+                    totalDepth(), history.size(), lookupCountAtActivation, retiringFrontier.size(), true);
+            hooks.foundNodesC4Retirement(retiringFrontier.size(), 0, 0, retiredIndex.size());
+            return;
+        }
+        if (!activated) {
+            if (retiringFrontier.notEmpty()) {
+                history.add(retiringFrontier);
+            }
+            return;
+        }
+
+        if (retiringFrontier.isEmpty()) {
+            retiringFrontier.close();
+            hooks.foundNodesC4Retirement(0, 0, 0, retiredIndex == null ? 0 : retiredIndex.size());
+            return;
+        }
+
+        if (retiredIndex == null) {
+            retiredIndex = retiringFrontier;
+            transferredBuckets += retiringFrontier.size();
+            hooks.foundNodesC4Retirement(retiringFrontier.size(), 0, 0, retiredIndex.size());
+            return;
+        }
+
+        var transferred = 0;
+        var merged = 0;
+        for (var entry : retiringFrontier.keyValuesView()) {
+            var nodeId = entry.getOne();
+            var incoming = entry.getTwo();
+            var existing = retiredIndex.get(nodeId);
+            if (existing == null) {
+                retiredIndex.put(nodeId, incoming);
+                transferred += 1;
+            } else {
+                mergeBuckets(existing, incoming);
+                incoming.close();
+                merged += 1;
+            }
+        }
+        retiringFrontier.close();
+        transferredBuckets += transferred;
+        mergedBuckets += merged;
+        hooks.foundNodesC4Retirement(transferred, merged, 0, retiredIndex.size());
+    }
+
+    private static void mergeBuckets(
+            HeapTrackingArrayList<NodeState> existing, HeapTrackingArrayList<NodeState> incoming) {
+        Preconditions.checkState(existing.size() == incoming.size(), "Cannot merge incompatible state buckets");
+        for (int stateId = 0; stateId < incoming.size(); stateId++) {
+            var incomingState = incoming.get(stateId);
+            if (incomingState == null) {
+                continue;
+            }
+            var existingState = existing.get(stateId);
+            Preconditions.checkState(
+                    existingState == null || existingState == incomingState,
+                    "Attempted to replace canonical NodeState instance");
+            if (existingState == null) {
+                existing.set(stateId, incomingState);
+            }
+        }
+    }
+
+    boolean activated() {
+        return activated;
+    }
+
+    int frozenHistorySize() {
+        return history.size();
+    }
+
+    HeapTrackingArrayList<NodeState> retiredBucket(long nodeId) {
+        return retiredIndex == null ? null : retiredIndex.get(nodeId);
+    }
+
+    long lookupCountAtActivation() {
+        return lookupCountAtActivation;
+    }
+
+    long retiredIndexHits() {
+        return retiredIndexHits;
+    }
+
+    long retiredIndexMisses() {
+        return retiredIndexMisses;
+    }
+
+    long frozenHistoryProbes() {
+        return frozenHistoryProbes;
+    }
+
+    long transferredBuckets() {
+        return transferredBuckets;
+    }
+
+    long mergedBuckets() {
+        return mergedBuckets;
     }
 
     public HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> frontier(TraversalDirection direction) {
@@ -265,6 +406,7 @@ public final class FoundNodes implements AutoCloseable {
         FORWARD_FRONTIER,
         BACKWARD_FRONTIER,
         HISTORY,
+        RETIRED_INDEX,
         MISS
     }
 }

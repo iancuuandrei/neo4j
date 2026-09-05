@@ -47,6 +47,18 @@ class PPBFSMaterialityBenchmarkTest extends RuntimeUtilTestSuite with PGPathProp
     var maxHistoryProbes = 0
     var nodeLevelBuckets = 0L
     var allocatedSlots = 0L
+    var c4Activated = false
+    var c4ActivationDepth = -1
+    var c4FrozenHistorySize = 0
+    var c4LookupsBeforeActivation = 0L
+    var c4PostActivationLookups = 0L
+    var c4RetiredHits = 0L
+    var c4RetiredMisses = 0L
+    var c4FrozenHistoryProbes = 0L
+    var c4TransferredBuckets = 0L
+    var c4MergedBuckets = 0L
+    var c4CanonicalBucketAllocations = 0L
+    var c4MaxRetiredIndexSize = 0
 
     override def foundNodesLookup(
       location: LookupLocation,
@@ -67,6 +79,37 @@ class PPBFSMaterialityBenchmarkTest extends RuntimeUtilTestSuite with PGPathProp
         nodeLevelBuckets += 1
         allocatedSlots += slots
       }
+
+    override def foundNodesC4Activation(
+      activationDepth: Int,
+      frozenHistorySize: Int,
+      lookupCountBeforeActivation: Long,
+      retiringBuckets: Int,
+      outerMapTransferred: Boolean
+    ): Unit = {
+      c4Activated = true
+      c4ActivationDepth = activationDepth
+      c4FrozenHistorySize = frozenHistorySize
+      c4LookupsBeforeActivation = lookupCountBeforeActivation
+    }
+
+    override def foundNodesC4Retirement(
+      transferredBuckets: Int,
+      mergedBuckets: Int,
+      canonicalBucketAllocations: Int,
+      retiredIndexSize: Int
+    ): Unit = {
+      c4TransferredBuckets += transferredBuckets
+      c4MergedBuckets += mergedBuckets
+      c4CanonicalBucketAllocations += canonicalBucketAllocations
+      c4MaxRetiredIndexSize = math.max(c4MaxRetiredIndexSize, retiredIndexSize)
+    }
+
+    override def foundNodesC4Lookup(retiredIndexHit: Boolean, frozenHistoryProbes: Int): Unit = {
+      c4PostActivationLookups += 1
+      if (retiredIndexHit) c4RetiredHits += 1 else c4RetiredMisses += 1
+      c4FrozenHistoryProbes += frozenHistoryProbes
+    }
   }
 
   private def runChain(depth: Int): (Metrics, Long, Int) = {
@@ -123,13 +166,17 @@ class PPBFSMaterialityBenchmarkTest extends RuntimeUtilTestSuite with PGPathProp
   }
 
   test("record controlled chain history-probe scaling") {
+    assume(sys.props.contains("ppbfs.metrics.output"), "experimental metrics run not requested")
     val depths = sys.props
       .get("ppbfs.depths")
       .map(_.split(',').map(_.trim.toInt).toSeq)
       .getOrElse(Seq(4, 16, 64, 256, 1024, 4096))
     val rows = ArrayBuffer(
       "depth,lookups,history_probes,probes_per_lookup,history_hits,misses,max_history_depth,max_history_probes," +
-        "node_level_buckets,allocated_state_slots,elapsed_ns,path_entities"
+        "node_level_buckets,allocated_state_slots,elapsed_ns,path_entities,c4_activated,c4_activation_depth," +
+        "c4_frozen_history_size,c4_lookups_before_activation,c4_post_activation_lookups,c4_retired_hits," +
+        "c4_retired_misses,c4_frozen_history_probes,c4_transferred_buckets,c4_merged_buckets," +
+        "c4_canonical_bucket_allocations,c4_max_retired_index_size"
     )
 
     depths.foreach { depth =>
@@ -146,7 +193,19 @@ class PPBFSMaterialityBenchmarkTest extends RuntimeUtilTestSuite with PGPathProp
         metrics.nodeLevelBuckets,
         metrics.allocatedSlots,
         elapsed,
-        pathEntities
+        pathEntities,
+        metrics.c4Activated,
+        metrics.c4ActivationDepth,
+        metrics.c4FrozenHistorySize,
+        metrics.c4LookupsBeforeActivation,
+        metrics.c4PostActivationLookups,
+        metrics.c4RetiredHits,
+        metrics.c4RetiredMisses,
+        metrics.c4FrozenHistoryProbes,
+        metrics.c4TransferredBuckets,
+        metrics.c4MergedBuckets,
+        metrics.c4CanonicalBucketAllocations,
+        metrics.c4MaxRetiredIndexSize
       ).mkString(",")
     }
 

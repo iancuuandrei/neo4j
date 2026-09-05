@@ -41,8 +41,11 @@ object PPBFSHooks {
 
   private var current: PPBFSHooks = null
 
+  private lazy val configured: PPBFSHooks =
+    sys.props.get("ppbfs.c4.metrics.output").fold[PPBFSHooks](NULL)(new C4MetricsPPBFSHooks(_))
+
   def getInstance(): PPBFSHooks = {
-    if (current == null) current = NULL
+    if (current == null) current = configured
     current
   }
 
@@ -104,6 +107,20 @@ abstract class PPBFSHooks {
     historyDepth: Int
   ): Unit = {}
   def foundNodesBufferAdd(newNodeBucket: Boolean, allocatedStateSlots: Int): Unit = {}
+  def foundNodesC4Activation(
+    activationDepth: Int,
+    frozenHistorySize: Int,
+    lookupCountBeforeActivation: Long,
+    retiringBuckets: Int,
+    outerMapTransferred: Boolean
+  ): Unit = {}
+  def foundNodesC4Retirement(
+    transferredBuckets: Int,
+    mergedBuckets: Int,
+    canonicalBucketAllocations: Int,
+    retiredIndexSize: Int
+  ): Unit = {}
+  def foundNodesC4Lookup(retiredIndexHit: Boolean, frozenHistoryProbes: Int): Unit = {}
 
   def cursorSetNode(nodeId: Long): Unit = {}
   def cursorNextRelationship(nodeId: Long): Unit = {}

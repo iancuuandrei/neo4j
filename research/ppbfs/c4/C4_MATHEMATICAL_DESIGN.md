@@ -68,7 +68,7 @@ Stage A measures history hit/miss probes, direct lookup, whole-map transfer, and
 L * (H*c_history - c_direct) > B*c_transfer*safetyFactor
 ```
 
-The selected rule is frozen before formal C4 timing. It must activate exactly once, never deactivate, avoid activation on the expected depth-1–3 controls, and activate early relative to deep road queries. Threshold alternatives are calibration evidence, not a candidate zoo.
+Calibration selected the fixed rule `H >= 8` when a non-empty frontier retires. This freezes exactly eight pre-activation history levels, activates exactly once, never deactivates, avoids activation on depth-1–3 controls, and activates early relative to deep road queries. Threshold alternatives are calibration evidence, not a candidate zoo. See `C4_MICROBENCHMARK.md` for the measurements and limitations.
 
 ## Performance metrics and decision rule
 
