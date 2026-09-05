@@ -41,8 +41,11 @@ object PPBFSHooks {
 
   private var current: PPBFSHooks = null
 
+  private lazy val configured: PPBFSHooks =
+    sys.props.get("ppbfs.occupancy.output").fold[PPBFSHooks](NULL)(new OccupancyPPBFSHooks(_))
+
   def getInstance(): PPBFSHooks = {
-    if (current == null) current = NULL
+    if (current == null) current = configured
     current
   }
 
@@ -104,6 +107,7 @@ abstract class PPBFSHooks {
     historyDepth: Int
   ): Unit = {}
   def foundNodesBufferAdd(newNodeBucket: Boolean, allocatedStateSlots: Int): Unit = {}
+  def foundNodesState(nodeId: Long, stateId: Int, nfaStateCount: Int): Unit = {}
 
   def cursorSetNode(nodeId: Long): Unit = {}
   def cursorNextRelationship(nodeId: Long): Unit = {}

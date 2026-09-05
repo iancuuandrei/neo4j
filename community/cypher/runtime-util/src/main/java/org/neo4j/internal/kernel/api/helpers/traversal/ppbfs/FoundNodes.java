@@ -116,6 +116,7 @@ public final class FoundNodes implements AutoCloseable {
         }
         nodeStates.set(nodeState.state().id(), nodeState);
         hooks.foundNodesBufferAdd(newNodeBucket, nfaStateCount);
+        hooks.foundNodesState(nodeState.id(), nodeState.state().id(), nfaStateCount);
     }
 
     /** Look up a NodeState. O(N) wrt history length */
