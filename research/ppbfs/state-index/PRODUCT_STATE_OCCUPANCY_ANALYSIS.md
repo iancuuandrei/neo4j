@@ -19,4 +19,3 @@ Definitions: `U` is unique `(node,state)` product states, `N` distinct data node
 `INFERRED`: occupancy alone is not a predictor of speedup. The strongest gains occur when lookup attempts also traverse deep retained history; high rho with shallow history can be close to parity. This supports a debt model involving lookup count times history-probe depth rather than `U`, `N`, or rho alone.
 
 `LIMITATION`: occupancy was measured only on the research hook build and Hetionet. The available aggregate points are insufficient for a defensible multivariate regression; no correlation coefficient is promoted as causal evidence. Controlled chain counts and source/JFR attribution remain the causal evidence.
-
