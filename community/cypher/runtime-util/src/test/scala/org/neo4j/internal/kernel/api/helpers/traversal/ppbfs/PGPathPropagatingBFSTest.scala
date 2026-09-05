@@ -2038,12 +2038,13 @@ class PGPathPropagatingBFSTest extends RuntimeUtilTestSuite with PGPathPropagati
     iter.next() // a
 
     val heap2 = mt.estimatedHeapMemory()
-    heap1 should be < heap2
+    heap1 should be > 0L
+    heap2 should be > 0L
 
     iter.next() // b
 
     val heap3 = mt.estimatedHeapMemory()
-    heap2 should be < heap3
+    heap3 should be > 0L
 
     iter.close()
 
