@@ -32,8 +32,8 @@ import org.neo4j.util.Preconditions;
  *
  *
  * <pre>
- * We store all the nodes we've seen level by level. We do this so that we can have access to both the current and
- * next levels, without duplicating data, or reallocating collections due to .grow calls.
+ * Frontier nodes are stored by level for traversal. A separate canonical repository provides direct lookup across
+ * all levels.
  *
  * To enable us to group nodes by their data graph id, we keep NodeStates in something similar to a two dimensional
  * hash map. For example, to get the node (nodeId=2, stateId=3) from the currentLevel, we'd call
@@ -42,37 +42,22 @@ import org.neo4j.util.Preconditions;
  * where the NodeState corresponding to stateId=3 is stored at index 3. This may lead to over allocation and sparse
  * arrays for certain NFA's, so we may want to revise this in the future if benchmarks tell us to.
  *
- * We keep all of our nodes in three disjoint collections, all of them adhere to the same indexing scheme as
- * explained above for currentLevel:
+ * We keep active nodes in two frontier collections using the indexing scheme above:
  *
- *  1) history. This is an array list of (nodeId, stateId) -> nodeState maps which store all the levels we've
- *     previously seen. So previousLevels.get(3) stores the nodes which were discovered in the previous level
- *  2) frontier. This is a map with (nodeId, stateId) -> nodeState for the current level
- *  3) frontierBuffer. This is a map with (nodeId, stateId) -> nodeState for the next level, so that we can iterate
+ *  1) frontier. This is a map with (nodeId, stateId) -> nodeState for the current level
+ *  2) frontierBuffer. This is a map with (nodeId, stateId) -> nodeState for the next level, so that we can iterate
  *     over the current frontier while collecting new nodes for the next frontier
  *
- *  So for example, if we're currently expanding level 3, to find nodes at distance 4 from the source,
- *  our data would look like
- *
- *  ┌───────────────────────────┐
- *  │          history          │
- *  │ ┌─────┐  ┌─────┐  ┌─────┐ │  ┌──────────────┐  ┌────────────┐
- *  │ │  0  │  │  1  │  │  2  │ │  │ 3 (frontier) │  │ 4 (buffer) │
- *  │ └─────┘  └─────┘  └─────┘ │  └──────────────┘  └────────────┘
- *  └───────────────────────────┘
- *
- * Keeping our nodeStates batched by level like this allows us to avoid rehashing and reallocating the whole
- * collection when we need to grow it, we only ever rehash/reallocate the buffer as it grows.
- *
- * A downside of this design is that looking up a node is linear w.r.t the depth of the bfs.
+ * Retired frontiers are released. The canonical repository keeps one reference to each NodeState and makes lookup
+ * independent of BFS depth.
  *
  * We also support a bidirectional mode, which allocates two frontiers: one for forwards traversal and one
  * for backwards traversal. They share the same buffer since we only expand in one direction at a time.
  * </pre>
  */
 public final class FoundNodes implements AutoCloseable {
-    private final HeapTrackingArrayList<HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>>
-            history; // levelDepth x nodeId x stateId -> NodeState
+    private final HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
+            allStates; // nodeId x stateId -> NodeState
 
     private HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
             forwardFrontier; // nodeId x stateId -> NodeState
@@ -94,7 +79,7 @@ public final class FoundNodes implements AutoCloseable {
     public FoundNodes(MemoryTracker memoryTracker, SearchMode mode, int nfaStateCount) {
         this.memoryTracker = memoryTracker.getScopedMemoryTracker();
         this.mode = mode;
-        this.history = HeapTrackingArrayList.newArrayList(this.memoryTracker);
+        this.allStates = HeapTrackingLongObjectHashMap.createLongObjectHashMap(this.memoryTracker);
         this.forwardFrontier = HeapTrackingLongObjectHashMap.createLongObjectHashMap(this.memoryTracker);
         if (mode == SearchMode.Bidirectional) {
             this.backwardFrontier = HeapTrackingLongObjectHashMap.createLongObjectHashMap(this.memoryTracker);
@@ -105,6 +90,16 @@ public final class FoundNodes implements AutoCloseable {
 
     public void addToBuffer(NodeState nodeState) {
         Preconditions.checkState(bufferState == BufferState.OPEN, "NodeState added to closed buffer");
+        var allStatesForNode = allStates.get(nodeState.id());
+        if (allStatesForNode == null) {
+            allStatesForNode = HeapTrackingArrayList.newEmptyArrayList(nfaStateCount, memoryTracker);
+            allStates.put(nodeState.id(), allStatesForNode);
+        }
+        var existing = allStatesForNode.get(nodeState.state().id());
+        Preconditions.checkState(
+                existing == null || existing == nodeState, "Attempted to replace canonical NodeState instance");
+        allStatesForNode.set(nodeState.state().id(), nodeState);
+
         var nodeStates = frontierBuffer.get(nodeState.id());
         if (nodeStates == null) {
             nodeStates = HeapTrackingArrayList.newEmptyArrayList(nfaStateCount, memoryTracker);
@@ -113,32 +108,9 @@ public final class FoundNodes implements AutoCloseable {
         nodeStates.set(nodeState.state().id(), nodeState);
     }
 
-    /** Look up a NodeState. O(N) wrt history length */
+    /** Look up a NodeState by its canonical product-state key. */
     public NodeState get(long nodeId, int stateId) {
-        var nodeState = getFromLevel(frontierBuffer, nodeId, stateId);
-        if (nodeState != null) {
-            return nodeState;
-        }
-
-        nodeState = getFromLevel(forwardFrontier, nodeId, stateId);
-        if (nodeState != null) {
-            return nodeState;
-        }
-
-        if (mode == SearchMode.Bidirectional) {
-            nodeState = getFromLevel(backwardFrontier, nodeId, stateId);
-            if (nodeState != null) {
-                return nodeState;
-            }
-        }
-
-        for (int i = history.size() - 1; i >= 0; i--) {
-            nodeState = getFromLevel(history.get(i), nodeId, stateId);
-            if (nodeState != null) {
-                return nodeState;
-            }
-        }
-        return null;
+        return getFromLevel(allStates, nodeId, stateId);
     }
 
     private NodeState getFromLevel(
@@ -161,27 +133,28 @@ public final class FoundNodes implements AutoCloseable {
         bufferState = BufferState.OPEN;
     }
 
-    /** Shifts the previous frontier into history, and the frontier buffer into the current frontier */
+    /** Retires the previous frontier and promotes the frontier buffer. */
     public void commitBuffer(TraversalDirection direction) {
         Preconditions.checkState(bufferState == BufferState.OPEN, "Buffer closed when it was not open");
 
         switch (direction) {
             case FORWARD -> {
-                if (forwardFrontier.notEmpty()) {
-                    history.add(forwardFrontier);
-                }
+                closeLevel(forwardFrontier);
                 forwardDepth += 1;
                 forwardFrontier = frontierBuffer;
             }
             case BACKWARD -> {
-                if (backwardFrontier.notEmpty()) {
-                    history.add(backwardFrontier);
-                }
+                closeLevel(backwardFrontier);
                 backwardDepth += 1;
                 backwardFrontier = frontierBuffer;
             }
         }
         bufferState = BufferState.CLOSED;
+    }
+
+    private static void closeLevel(HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> level) {
+        level.forEachValue(HeapTrackingArrayList::close);
+        level.close();
     }
 
     public HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> frontier(TraversalDirection direction) {
