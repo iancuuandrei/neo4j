@@ -190,3 +190,4 @@ analysis, near-limit tests, or multi-topology memory evidence.
 - Final Pareto result: B0 and C1 are non-dominated. C2/C3 remain non-selected
   comparators. C4 was not implemented.
 - Final classification: `GO — APPROACH NEO4J MAINTAINERS WITH MEASURED TRADE-OFF`.
+- Extracted the minimal C1 implementation and focused tests into the clean `contrib/ppbfs-direct-state-index` worktree. Spotless and 76 focused tests passed. The full runtime-util suite was blocked after 39 reported test classes when Windows rejected a 500 MiB JVM reservation due to paging-file capacity; the crash log was moved to the append-only D: validation artifact root.

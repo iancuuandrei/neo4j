@@ -98,6 +98,8 @@ JFR v1–v5 are retained but excluded from allocation conclusions because they a
 
 C1 passed focused canonical identity, historical lookup, bidirectional sharing, duplicate rejection, frontier retirement, interruption cleanup, generated differential tests, and the existing PPBFS suite. Its representation is the simplest candidate: one query-local node-major canonical repository using Neo4j tracked collections. C2 and C3 remain useful negative comparators but are not production candidates.
 
+The extracted clean contribution branch ran 76 focused tests with zero failures/errors and five existing skips; Spotless passed. A later attempt to run the entire runtime-util module was `BLOCKED` when a parallel Surefire JVM could not reserve 500 MiB because the Windows paging file was too small. Thirty-nine test classes, including the focused and generated PPBFS suites, completed before the stalled Maven process was terminated. This is not reported as a full-module PASS.
+
 ## Pareto conclusion
 
 `INFERRED`: B0 and C1 are both Pareto-relevant. B0 minimizes tracked structural memory and preserves every tested fixed limit; C1 has the strongest latency and removes the causal hotspot at a small but real memory/allocation cost. C2 is dominated by C1 in current evidence; C3 did not recover the strict boundary.

@@ -39,6 +39,8 @@ This must be discussed with maintainers before an upstream PR is opened. The pul
 - existing generated/differential PPBFS coverage;
 - focused query-memory accounting.
 
+Local clean-branch result: 76 focused tests, 0 failures/errors, 5 existing skips; Spotless PASS. Full runtime-util module: `BLOCKED` by a Windows paging-file reservation failure in a parallel test JVM, not claimed as PASS.
+
 ## Scope
 
 The upstream branch contains only production `FoundNodes` plumbing and focused upstream-worthy tests. It excludes research scripts, datasets, reports, JFR, feature flags, hooks, C2, C3, and machine-specific paths.
