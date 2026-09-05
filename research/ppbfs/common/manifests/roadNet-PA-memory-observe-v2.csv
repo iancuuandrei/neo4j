@@ -1,0 +1,4 @@
+case_id,source,target,distance,limit,expected,candidate_expected
+d250-93m,457532,78764,250,93m,OBSERVE,OBSERVE
+d500-532m,457532,1668,500,532m,OBSERVE,OBSERVE
+d772-996m,457532,848968,772,996m,OBSERVE,OBSERVE

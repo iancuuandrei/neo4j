@@ -90,36 +90,42 @@ def summarize_speedups(speedups: list[float]) -> dict[str, float | int]:
     }
 
 
-def load_csv(path: Path) -> dict[int, dict[str, Any]]:
-    by_distance: dict[int, dict[str, Any]] = {}
-    seen: set[tuple[int, int]] = set()
+CaseKey = tuple[int, int, int]
+
+
+def load_csv(path: Path) -> dict[CaseKey, dict[str, Any]]:
+    by_case: dict[CaseKey, dict[str, Any]] = {}
+    seen: set[tuple[int, int, int, int]] = set()
     with path.open(encoding="utf-8", newline="") as source:
         rows = list(csv.DictReader(source))
     if not rows:
         raise ValueError(f"No measurements in {path}")
     for row in rows:
         distance = int(row["distance"])
+        source_node = int(row["source"])
+        target_node = int(row["target"])
         repetition = int(row["repetition"])
-        key = (distance, repetition)
-        if key in seen:
-            raise ValueError(f"Duplicate distance/repetition in {path}: {key}")
-        seen.add(key)
+        case_key = (source_node, target_node, distance)
+        sample_key = (*case_key, repetition)
+        if sample_key in seen:
+            raise ValueError(f"Duplicate case/repetition in {path}: {sample_key}")
+        seen.add(sample_key)
         lengths = tuple(int(value) for value in row["result_lengths"].split(";"))
-        entry = by_distance.setdefault(distance, {"elapsedNs": [], "resultLengths": lengths})
+        entry = by_case.setdefault(case_key, {"elapsedNs": [], "resultLengths": lengths})
         if entry["resultLengths"] != lengths:
-            raise ValueError(f"Result drift within {path} at distance {distance}")
+            raise ValueError(f"Result drift within {path} for case {case_key}")
         entry["elapsedNs"].append(int(row["elapsed_ns"]))
 
-    repetition_counts = {len(entry["elapsedNs"]) for entry in by_distance.values()}
+    repetition_counts = {len(entry["elapsedNs"]) for entry in by_case.values()}
     if len(repetition_counts) != 1:
         raise ValueError(f"Repetition-count drift in {path}: {sorted(repetition_counts)}")
-    return by_distance
+    return by_case
 
 
 def discover_runs(
     runs_dir: Path, baseline_sha: str, candidate_sha: str
-) -> tuple[dict[int, dict[int, dict[str, Any]]], dict[int, dict[int, dict[str, Any]]], dict[str, Any]]:
-    variants: dict[str, dict[int, dict[int, dict[str, Any]]]] = {
+) -> tuple[dict[int, dict[CaseKey, dict[str, Any]]], dict[int, dict[CaseKey, dict[str, Any]]], dict[str, Any]]:
+    variants: dict[str, dict[int, dict[CaseKey, dict[str, Any]]]] = {
         baseline_sha: {},
         candidate_sha: {},
     }
@@ -175,27 +181,28 @@ def discover_runs(
 
 
 def analyze(
-    baseline: dict[int, dict[int, dict[str, Any]]],
-    candidate: dict[int, dict[int, dict[str, Any]]],
-) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]]]:
+    baseline: dict[int, dict[CaseKey, dict[str, Any]]],
+    candidate: dict[int, dict[CaseKey, dict[str, Any]]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, dict[str, Any]]]:
     seeds = sorted(baseline)
-    distances = sorted(baseline[seeds[0]])
-    per_distance: list[dict[str, Any]] = []
+    cases = sorted(baseline[seeds[0]], key=lambda case: (case[2], case[0], case[1]))
+    per_case: list[dict[str, Any]] = []
 
     for seed in seeds:
-        if sorted(baseline[seed]) != distances or sorted(candidate[seed]) != distances:
-            raise ValueError(f"Distance-set drift in seed {seed}")
+        if set(baseline[seed]) != set(cases) or set(candidate[seed]) != set(cases):
+            raise ValueError(f"Case-set drift in seed {seed}")
 
-    for distance in distances:
+    for source_node, target_node, distance in cases:
+        case = (source_node, target_node, distance)
         baseline_ms: list[float] = []
         candidate_ms: list[float] = []
         speedups: list[float] = []
         for seed in seeds:
-            before = baseline[seed][distance]
-            after = candidate[seed][distance]
+            before = baseline[seed][case]
+            after = candidate[seed][case]
             if before["resultLengths"] != after["resultLengths"]:
                 raise ValueError(
-                    f"Result mismatch seed={seed} distance={distance}: "
+                    f"Result mismatch seed={seed} case={case}: "
                     f"{before['resultLengths']} vs {after['resultLengths']}"
                 )
             before_median = statistics.median(before["elapsedNs"])
@@ -203,10 +210,51 @@ def analyze(
             baseline_ms.append(before_median / 1_000_000)
             candidate_ms.append(after_median / 1_000_000)
             speedups.append(before_median / after_median)
+        per_case.append(
+            {
+                "source": source_node,
+                "target": target_node,
+                "distance": distance,
+                "resultLengths": list(baseline[seeds[0]][case]["resultLengths"]),
+                "baselineMs": {
+                    "median": statistics.median(baseline_ms),
+                    "p95": percentile(baseline_ms, 0.95),
+                    "p99": percentile(baseline_ms, 0.99),
+                    "minimum": min(baseline_ms),
+                    "maximum": max(baseline_ms),
+                    "values": baseline_ms,
+                },
+                "candidateMs": {
+                    "median": statistics.median(candidate_ms),
+                    "p95": percentile(candidate_ms, 0.95),
+                    "p99": percentile(candidate_ms, 0.99),
+                    "minimum": min(candidate_ms),
+                    "maximum": max(candidate_ms),
+                    "values": candidate_ms,
+                },
+                "pairedSpeedup": summarize_speedups(speedups),
+                "speedupsBySeed": dict(zip(map(str, seeds), speedups, strict=True)),
+            }
+        )
+
+    distances = sorted({case[2] for case in cases})
+    per_distance: list[dict[str, Any]] = []
+    for distance in distances:
+        selected_cases = [case for case in cases if case[2] == distance]
+        baseline_ms = []
+        candidate_ms = []
+        speedups = []
+        for seed in seeds:
+            before = [statistics.median(baseline[seed][case]["elapsedNs"]) for case in selected_cases]
+            after = [statistics.median(candidate[seed][case]["elapsedNs"]) for case in selected_cases]
+            baseline_ms.append(statistics.median(before) / 1_000_000)
+            candidate_ms.append(statistics.median(after) / 1_000_000)
+            speedups.append(geometric_mean(b / a for b, a in zip(before, after, strict=True)))
         per_distance.append(
             {
                 "distance": distance,
-                "resultLengths": list(baseline[seeds[0]][distance]["resultLengths"]),
+                "caseCount": len(selected_cases),
+                "cases": [{"source": case[0], "target": case[1]} for case in selected_cases],
                 "baselineMs": {
                     "median": statistics.median(baseline_ms),
                     "p95": percentile(baseline_ms, 0.95),
@@ -229,29 +277,30 @@ def analyze(
         )
 
     groups = {
-        "all": distances,
-        "shallow_10_100": [distance for distance in distances if distance <= 100],
-        "deep_250_772": [distance for distance in distances if distance >= 250],
+        "all": cases,
+        "shallow_through_100": [case for case in cases if case[2] <= 100],
+        "deep_250_plus": [case for case in cases if case[2] >= 250],
     }
     aggregates: dict[str, dict[str, Any]] = {}
-    for name, selected in groups.items():
-        if not selected:
+    for name, selected_cases in groups.items():
+        if not selected_cases:
             continue
         per_seed = []
         for seed in seeds:
             per_seed.append(
                 geometric_mean(
-                    statistics.median(baseline[seed][distance]["elapsedNs"])
-                    / statistics.median(candidate[seed][distance]["elapsedNs"])
-                    for distance in selected
+                    statistics.median(baseline[seed][case]["elapsedNs"])
+                    / statistics.median(candidate[seed][case]["elapsedNs"])
+                    for case in selected_cases
                 )
             )
         aggregates[name] = {
-            "distances": selected,
+            "distances": sorted({case[2] for case in selected_cases}),
+            "caseCount": len(selected_cases),
             "pairedSpeedup": summarize_speedups(per_seed),
             "speedupsBySeed": dict(zip(map(str, seeds), per_seed, strict=True)),
         }
-    return per_distance, aggregates
+    return per_case, per_distance, aggregates
 
 
 def markdown_report(result: dict[str, Any]) -> str:
@@ -267,13 +316,13 @@ def markdown_report(result: dict[str, Any]) -> str:
         "",
         f"Paired seeds: `{', '.join(map(str, result['binding']['seeds']))}`",
         "",
-        f"| Distance | {baseline_label} median ms | {candidate_label} median ms | Geomean speedup | 95% CI | Min–max |",
-        "| ---: | ---: | ---: | ---: | ---: | ---: |",
+        f"| Distance | Cases | {baseline_label} median ms | {candidate_label} median ms | Geomean speedup | 95% CI | Min–max |",
+        "| ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for row in result["perDistance"]:
         speedup = row["pairedSpeedup"]
         lines.append(
-            f"| {row['distance']} | {row['baselineMs']['median']:.3f} | "
+            f"| {row['distance']} | {row['caseCount']} | {row['baselineMs']['median']:.3f} | "
             f"{row['candidateMs']['median']:.3f} | {speedup['geometricMeanSpeedup']:.3f}× | "
             f"[{speedup['confidence95Lower']:.3f}, {speedup['confidence95Upper']:.3f}] | "
             f"{speedup['minimumSpeedup']:.3f}–{speedup['maximumSpeedup']:.3f}× |"
@@ -282,7 +331,7 @@ def markdown_report(result: dict[str, Any]) -> str:
     for name, aggregate in result["aggregates"].items():
         speedup = aggregate["pairedSpeedup"]
         lines.append(
-            f"- `{name}` distances {aggregate['distances']}: "
+            f"- `{name}` ({aggregate['caseCount']} cases; distances {aggregate['distances']}): "
             f"{speedup['geometricMeanSpeedup']:.3f}× "
             f"(95% CI {speedup['confidence95Lower']:.3f}–{speedup['confidence95Upper']:.3f}×)."
         )
@@ -313,9 +362,9 @@ def main() -> None:
     baseline, candidate, binding = discover_runs(
         args.runs_dir, args.baseline_sha, args.candidate_sha
     )
-    per_distance, aggregates = analyze(baseline, candidate)
+    per_case, per_distance, aggregates = analyze(baseline, candidate)
     result = {
-        "schemaVersion": 1,
+        "schemaVersion": 2,
         "evidenceLabel": "MEASURED",
         "method": "paired log speedup with two-sided 95% Student-t confidence interval",
         "baselineVariantSha": args.baseline_sha,
@@ -324,6 +373,7 @@ def main() -> None:
         "baselineLabel": args.baseline_label,
         "candidateLabel": args.candidate_label,
         "binding": binding,
+        "perCase": per_case,
         "perDistance": per_distance,
         "aggregates": aggregates,
     }

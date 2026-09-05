@@ -118,7 +118,14 @@ def main() -> None:
             setting_row = rows[0]["row"]
             if setting_row[0] != "db.memory.transaction.max" or not setting_row[3]:
                 raise RuntimeError(f"Memory limit is not explicitly configured: {setting_row}")
-            if bytes_from_setting(str(setting_row[1])) != bytes_from_setting(args.limit):
+            active_bytes = bytes_from_setting(str(setting_row[1]))
+            requested_bytes = bytes_from_setting(args.limit)
+            # SHOW SETTINGS formats GiB-scale byte settings with limited decimal
+            # precision (for example, 1286 MiB as 1.26 GiB). The isolated config
+            # still contains the exact requested value, so tolerate only the
+            # display rounding interval while requiring isExplicitlySet above.
+            display_tolerance = max(1, round(requested_bytes * 0.005))
+            if abs(active_bytes - requested_bytes) > display_tolerance:
                 raise RuntimeError(f"Active memory limit {setting_row[1]!r} does not match {args.limit!r}")
 
             for case in cases:
@@ -152,8 +159,23 @@ def main() -> None:
                     mismatches.append(f"{case['case_id']}: unexpected results {lengths}")
                 if observed == "FAIL" and not is_transaction_memory_error(errors):
                     mismatches.append(f"{case['case_id']}: failure was not the transaction memory limit: {errors}")
-                required_outcome = case["expected"] if args.role == "baseline" else (
-                    "PASS" if case["expected"] == "PASS" else None
+                baseline_expected = case["expected"].strip().upper()
+                candidate_expected = case.get("candidate_expected", "").strip().upper()
+                allowed_expectations = {"PASS", "FAIL", "OBSERVE"}
+                if baseline_expected not in allowed_expectations:
+                    mismatches.append(
+                        f"{case['case_id']}: invalid expected {baseline_expected!r}"
+                    )
+                if candidate_expected and candidate_expected not in allowed_expectations:
+                    mismatches.append(
+                        f"{case['case_id']}: invalid candidate_expected {candidate_expected!r}"
+                    )
+                required_outcome = (
+                    None if baseline_expected == "OBSERVE" else baseline_expected
+                ) if args.role == "baseline" else (
+                    None if candidate_expected == "OBSERVE" else (
+                        candidate_expected or ("PASS" if baseline_expected == "PASS" else None)
+                    )
                 )
                 if required_outcome is not None and observed != required_outcome:
                     mismatches.append(

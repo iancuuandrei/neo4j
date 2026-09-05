@@ -41,51 +41,66 @@ class AnalyzePairedRunsTest(unittest.TestCase):
 
             loaded = load_csv(path)
 
-        self.assertEqual([100, 300], loaded[10]["elapsedNs"])
-        self.assertEqual((10, 11), loaded[10]["resultLengths"])
+        self.assertEqual([100, 300], loaded[(1, 2, 10)]["elapsedNs"])
+        self.assertEqual((10, 11), loaded[(1, 2, 10)]["resultLengths"])
+
+    def test_load_csv_supports_multiple_pairs_at_the_same_distance(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "run.csv"
+            with path.open("w", encoding="utf-8", newline="") as output:
+                writer = csv.writer(output)
+                writer.writerow(
+                    ("order", "repetition", "source", "target", "distance", "elapsed_ns", "result_lengths")
+                )
+                writer.writerow((0, 0, 1, 2, 10, 100, "10;11"))
+                writer.writerow((1, 0, 1, 3, 10, 200, "10;10"))
+
+            loaded = load_csv(path)
+
+        self.assertEqual({(1, 2, 10), (1, 3, 10)}, set(loaded))
 
     def test_analysis_pairs_independent_fork_medians(self) -> None:
         baseline = {
             1: {
-                10: {"elapsedNs": [100, 300], "resultLengths": (10, 11)},
-                250: {"elapsedNs": [800, 1200], "resultLengths": (250, 251)},
+                (1, 2, 10): {"elapsedNs": [100, 300], "resultLengths": (10, 11)},
+                (1, 3, 250): {"elapsedNs": [800, 1200], "resultLengths": (250, 251)},
             },
             2: {
-                10: {"elapsedNs": [200, 400], "resultLengths": (10, 11)},
-                250: {"elapsedNs": [1000, 1400], "resultLengths": (250, 251)},
+                (1, 2, 10): {"elapsedNs": [200, 400], "resultLengths": (10, 11)},
+                (1, 3, 250): {"elapsedNs": [1000, 1400], "resultLengths": (250, 251)},
             },
         }
         candidate = {
             1: {
-                10: {"elapsedNs": [50, 150], "resultLengths": (10, 11)},
-                250: {"elapsedNs": [400, 600], "resultLengths": (250, 251)},
+                (1, 2, 10): {"elapsedNs": [50, 150], "resultLengths": (10, 11)},
+                (1, 3, 250): {"elapsedNs": [400, 600], "resultLengths": (250, 251)},
             },
             2: {
-                10: {"elapsedNs": [100, 200], "resultLengths": (10, 11)},
-                250: {"elapsedNs": [500, 700], "resultLengths": (250, 251)},
+                (1, 2, 10): {"elapsedNs": [100, 200], "resultLengths": (10, 11)},
+                (1, 3, 250): {"elapsedNs": [500, 700], "resultLengths": (250, 251)},
             },
         }
 
-        per_distance, aggregates = analyze(baseline, candidate)
+        _, per_distance, aggregates = analyze(baseline, candidate)
 
         self.assertEqual(2.0, per_distance[0]["pairedSpeedup"]["geometricMeanSpeedup"])
         self.assertEqual(2.0, aggregates["all"]["pairedSpeedup"]["geometricMeanSpeedup"])
 
     def test_analysis_omits_empty_predefined_aggregate(self) -> None:
         baseline = {
-            1: {10: {"elapsedNs": [100, 120], "resultLengths": (10, 11)}},
-            2: {10: {"elapsedNs": [110, 130], "resultLengths": (10, 11)}},
+            1: {(1, 2, 10): {"elapsedNs": [100, 120], "resultLengths": (10, 11)}},
+            2: {(1, 2, 10): {"elapsedNs": [110, 130], "resultLengths": (10, 11)}},
         }
         candidate = {
-            1: {10: {"elapsedNs": [90, 100], "resultLengths": (10, 11)}},
-            2: {10: {"elapsedNs": [95, 105], "resultLengths": (10, 11)}},
+            1: {(1, 2, 10): {"elapsedNs": [90, 100], "resultLengths": (10, 11)}},
+            2: {(1, 2, 10): {"elapsedNs": [95, 105], "resultLengths": (10, 11)}},
         }
 
-        _, aggregates = analyze(baseline, candidate)
+        _, _, aggregates = analyze(baseline, candidate)
 
         self.assertIn("all", aggregates)
-        self.assertIn("shallow_10_100", aggregates)
-        self.assertNotIn("deep_250_772", aggregates)
+        self.assertIn("shallow_through_100", aggregates)
+        self.assertNotIn("deep_250_plus", aggregates)
 
 
 if __name__ == "__main__":

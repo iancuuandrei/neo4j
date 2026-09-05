@@ -7,7 +7,9 @@ param(
     [int]$Repetitions = 1,
     [int]$Seed = 20260904,
     [string]$ProfileJsonl,
-    [string]$ProfileSummary
+    [string]$ProfileSummary,
+    [string]$JfrOutput,
+    [string]$JfrSettings = 'profile'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -66,6 +68,28 @@ try {
         throw "Neo4j did not become ready; inspect $stdoutLog and $stderrLog"
     }
 
+    $javaProcess = $null
+    if ($JfrOutput) {
+        $jfrPath = [IO.Path]::GetFullPath($JfrOutput)
+        if (Test-Path -LiteralPath $jfrPath) {
+            throw "Append-only protection: JFR output already exists at $jfrPath"
+        }
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $jfrPath) | Out-Null
+        $javaProcess = @(
+            Get-DistributionProcesses | Where-Object {
+                $_.Name -eq 'java.exe' -and
+                $_.CommandLine -match 'org\.neo4j\.server\.Neo4j'
+            }
+        ) | Select-Object -First 1
+        if (-not $javaProcess) {
+            throw 'Could not identify the Neo4j Java process for JFR.'
+        }
+        & jcmd $javaProcess.ProcessId JFR.start name=ppbfs "settings=$JfrSettings" disk=true
+        if ($LASTEXITCODE -ne 0) {
+            throw "JFR.start failed with code $LASTEXITCODE"
+        }
+    }
+
     $benchmarkArguments = @(
         '-u', $scriptPath, $manifestPath, $outputPath,
         '--warmups', $Warmups, '--repetitions', $Repetitions, '--seed', $Seed
@@ -81,6 +105,12 @@ try {
     & python @benchmarkArguments
     if ($LASTEXITCODE -ne 0) {
         throw "Benchmark exited with code $LASTEXITCODE"
+    }
+    if ($JfrOutput) {
+        & jcmd $javaProcess.ProcessId JFR.dump name=ppbfs "filename=$jfrPath"
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $jfrPath)) {
+            throw "JFR.dump failed with code $LASTEXITCODE"
+        }
     }
 } finally {
     Stop-DistributionProcesses

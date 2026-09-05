@@ -23,15 +23,20 @@ def main() -> None:
     parser.add_argument("input", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--relationship-type", default="LINK")
+    parser.add_argument(
+        "--materialize-undirected",
+        action="store_true",
+        help="write the reverse relationship for each non-self edge",
+    )
     args = parser.parse_args()
 
     args.output.mkdir(parents=True, exist_ok=True)
     node_ids: set[int] = set()
-    edge_count = 0
+    source_edge_count = 0
     for source, target in edges(args.input):
         node_ids.add(source)
         node_ids.add(target)
-        edge_count += 1
+        source_edge_count += 1
 
     with (args.output / "nodes-header.csv").open("w", encoding="utf-8", newline="") as output:
         output.write(":ID(Snap),snapId:long,:LABEL\n")
@@ -44,10 +49,18 @@ def main() -> None:
         output.write(":START_ID(Snap),:END_ID(Snap),:TYPE\n")
     with (args.output / "relationships.csv").open("w", encoding="utf-8", newline="") as output:
         writer = csv.writer(output, lineterminator="\n")
+        imported_edge_count = 0
         for source, target in edges(args.input):
             writer.writerow((source, target, args.relationship_type))
+            imported_edge_count += 1
+            if args.materialize_undirected and source != target:
+                writer.writerow((target, source, args.relationship_type))
+                imported_edge_count += 1
 
-    print(f"nodes={len(node_ids)} edges={edge_count} output={args.output}")
+    print(
+        f"nodes={len(node_ids)} source_edges={source_edge_count} "
+        f"imported_edges={imported_edge_count} output={args.output}"
+    )
 
 
 if __name__ == "__main__":
