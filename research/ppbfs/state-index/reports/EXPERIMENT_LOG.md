@@ -191,3 +191,15 @@ analysis, near-limit tests, or multi-topology memory evidence.
   comparators. C4 was not implemented.
 - Final classification: `GO — APPROACH NEO4J MAINTAINERS WITH MEASURED TRADE-OFF`.
 - Extracted the minimal C1 implementation and focused tests into the clean `contrib/ppbfs-direct-state-index` worktree. Spotless and 76 focused tests passed. The full runtime-util suite was blocked after 39 reported test classes when Windows rejected a 500 MiB JVM reservation due to paging-file capacity; the crash log was moved to the append-only D: validation artifact root.
+- On 2026-09-05, resolved the validation blocker without changing tests or
+  Surefire heap settings by using Neo4j's repository-supported
+  `-DsequentialTests` profile. `mvn -pl community/cypher/runtime-util
+  -DsequentialTests test` on clean candidate
+  `0a8ef51868e9c8f52dfd49c516d0a14a0295b2c6`, Maven 3.9.11, and Temurin
+  21.0.12.1 passed all 526 tests (0 failures, 0 errors, 5 existing skips) in
+  20.190 seconds Maven time / 22.414 seconds wall time. Raw log:
+  `D:\dev\neo4j-research\artifacts\ppbfs\validation\clean-candidate-full-suite-v2\maven.log`.
+- Accepted `specs/EXTERNAL_VALIDATION_V1.md` before new candidate timing. It
+  freezes the P1-P5 hypotheses, selection rules, exact variants, statistical
+  method, correctness/operator gates, occupancy metrics, and D:-only bulky
+  artifact policy.
