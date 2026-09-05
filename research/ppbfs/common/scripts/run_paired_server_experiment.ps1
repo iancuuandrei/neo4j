@@ -14,7 +14,9 @@ param(
     [int]$Forks = 5,
     [int]$Warmups = 1,
     [int]$Repetitions = 10,
-    [int]$SeedBase = 20260904
+    [int]$SeedBase = 20260904,
+    [ValidateSet(1, 2)] [int]$ShortestCount = 2,
+    [string]$QueryFile
 )
 
 $ErrorActionPreference = 'Stop'
@@ -68,6 +70,8 @@ $protocol = [ordered]@{
     forks = $Forks
     warmups = $Warmups
     repetitions = $Repetitions
+    shortestCount = $ShortestCount
+    queryFile = if ($QueryFile) { (Resolve-Path -LiteralPath $QueryFile).Path } else { $null }
     seedBase = $SeedBase
     ordering = 'seeded random variant order within each paired fork'
     manifest = $resolvedManifest
@@ -97,7 +101,7 @@ for ($fork = 1; $fork -le $Forks; $fork++) {
 
         & $runScript -Distribution $variant.Distribution -Manifest $resolvedManifest `
             -OutputCsv $csvPath -LogPrefix $logPrefix -Warmups $Warmups `
-            -Repetitions $Repetitions -Seed $seed
+            -Repetitions $Repetitions -Seed $seed -ShortestCount $ShortestCount -QueryFile $QueryFile
         if ($LASTEXITCODE -ne 0) {
             throw "$stem benchmark failed with exit code $LASTEXITCODE"
         }
@@ -107,6 +111,15 @@ for ($fork = 1; $fork -le $Forks; $fork++) {
             -Dataset $resolvedDataset -QueryManifest $resolvedManifest `
             -Config $resolvedConfig -Output $metadataPath -Warmups $Warmups `
             -Repetitions $Repetitions -Seed $seed
+        if ($QueryFile) {
+            $metadata = Get-Content -LiteralPath $metadataPath -Raw | ConvertFrom-Json -AsHashtable
+            $resolvedQueryFile = (Resolve-Path -LiteralPath $QueryFile).Path
+            $metadata.inputs.queryFile = [ordered]@{
+                file = $resolvedQueryFile
+                sha256 = (Get-FileHash -LiteralPath $resolvedQueryFile -Algorithm SHA256).Hash
+            }
+            $metadata | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $metadataPath -Encoding utf8NoBOM
+        }
         if ($LASTEXITCODE -ne 0) {
             throw "$stem metadata capture failed with exit code $LASTEXITCODE"
         }

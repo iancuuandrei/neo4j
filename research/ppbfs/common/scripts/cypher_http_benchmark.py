@@ -12,21 +12,21 @@ import time
 from pathlib import Path
 
 
-QUERY = """
-MATCH (s:SnapNode {snapId: $source}), (t:SnapNode {snapId: $target})
-MATCH p = SHORTEST 2 (s)-[:LINK]->+(t)
+QUERY_TEMPLATE = """
+MATCH (s:SnapNode {{snapId: $source}}), (t:SnapNode {{snapId: $target}})
+MATCH p = SHORTEST {shortest_count} (s)-[:LINK]->+(t)
 RETURN length(p) AS pathLength
 """
 
-PROFILE_QUERY = "PROFILE " + QUERY
 
-
-def execute(connection: http.client.HTTPConnection, source: int, target: int) -> tuple[int, list[int]]:
+def execute(
+    connection: http.client.HTTPConnection, query: str, source: int, target: int
+) -> tuple[int, list[int]]:
     body = json.dumps(
         {
             "statements": [
                 {
-                    "statement": QUERY,
+                    "statement": query,
                     "parameters": {"source": source, "target": target},
                     "resultDataContents": ["row"],
                 }
@@ -44,12 +44,14 @@ def execute(connection: http.client.HTTPConnection, source: int, target: int) ->
     return elapsed, lengths
 
 
-def execute_profile(connection: http.client.HTTPConnection, source: int, target: int) -> dict[str, object]:
+def execute_profile(
+    connection: http.client.HTTPConnection, query: str, source: int, target: int
+) -> dict[str, object]:
     body = json.dumps(
         {
             "statements": [
                 {
-                    "statement": PROFILE_QUERY,
+                    "statement": "PROFILE " + query,
                     "parameters": {"source": source, "target": target},
                     "resultDataContents": ["row"],
                     "includeStats": True,
@@ -87,18 +89,25 @@ def main() -> None:
     parser.add_argument("--warmups", type=int, default=1)
     parser.add_argument("--repetitions", type=int, default=3)
     parser.add_argument("--seed", type=int, default=20260904)
+    parser.add_argument("--shortest-count", type=int, choices=(1, 2), default=2)
+    parser.add_argument("--query-file", type=Path)
     parser.add_argument("--profile-jsonl", type=Path)
     parser.add_argument("--profile-summary", type=Path)
     args = parser.parse_args()
+    query = (
+        args.query_file.read_text(encoding="utf-8")
+        if args.query_file is not None
+        else QUERY_TEMPLATE.format(shortest_count=args.shortest_count)
+    )
 
     if (args.profile_jsonl is None) != (args.profile_summary is None):
         parser.error("--profile-jsonl and --profile-summary must be supplied together")
 
     with args.manifest.open(encoding="utf-8", newline="") as source_file:
-        pairs = [
-            (int(row["source"]), int(row["target"]), int(row["measured_distance"]))
-            for row in csv.DictReader(source_file)
-        ]
+        pairs = []
+        for row in csv.DictReader(source_file):
+            minimum_paths = int(row.get("expected_paths_min") or 2)
+            pairs.append((int(row["source"]), int(row["target"]), int(row["measured_distance"]), minimum_paths))
 
     if args.profile_jsonl is not None:
         for profile_path in (args.profile_jsonl, args.profile_summary):
@@ -108,9 +117,9 @@ def main() -> None:
 
     connection = http.client.HTTPConnection(args.host, args.port, timeout=600)
     for _ in range(args.warmups):
-        for source, target, expected in pairs:
-            _, lengths = execute(connection, source, target)
-            if len(lengths) != 2 or min(lengths) != expected:
+        for source, target, expected, minimum_paths in pairs:
+            _, lengths = execute(connection, query, source, target)
+            if not minimum_paths <= len(lengths) <= args.shortest_count or min(lengths) != expected:
                 raise RuntimeError(f"warmup mismatch {source}->{target}: {lengths}, expected {expected}")
 
     schedule = [(repetition, *pair) for repetition in range(args.repetitions) for pair in pairs]
@@ -119,9 +128,9 @@ def main() -> None:
     with args.output.open("w", encoding="utf-8", newline="") as output:
         writer = csv.writer(output, lineterminator="\n")
         writer.writerow(("order", "repetition", "source", "target", "distance", "elapsed_ns", "result_lengths"))
-        for order, (repetition, source, target, expected) in enumerate(schedule):
-            elapsed, lengths = execute(connection, source, target)
-            if len(lengths) != 2 or min(lengths) != expected:
+        for order, (repetition, source, target, expected, minimum_paths) in enumerate(schedule):
+            elapsed, lengths = execute(connection, query, source, target)
+            if not minimum_paths <= len(lengths) <= args.shortest_count or min(lengths) != expected:
                 raise RuntimeError(f"result mismatch {source}->{target}: {lengths}, expected {expected}")
             writer.writerow((order, repetition, source, target, expected, elapsed, ";".join(map(str, lengths))))
             output.flush()
@@ -135,15 +144,15 @@ def main() -> None:
             summary.writerow(
                 ("source", "target", "distance", "elapsed_ns", "result_lengths", "operator", "arguments_json")
             )
-            for order, (source, target, expected) in enumerate(pairs, start=1):
-                record = execute_profile(connection, source, target)
+            for order, (source, target, expected, minimum_paths) in enumerate(pairs, start=1):
+                record = execute_profile(connection, query, source, target)
                 result = record["response"]["results"][0]
                 lengths = [row["row"][0] for row in result["data"]]
                 record["distance"] = expected
                 record["resultLengths"] = lengths
                 raw_output.write(json.dumps(record, separators=(",", ":")) + "\n")
                 raw_output.flush()
-                if len(lengths) != 2 or min(lengths) != expected:
+                if not minimum_paths <= len(lengths) <= args.shortest_count or min(lengths) != expected:
                     raise RuntimeError(f"PROFILE mismatch {source}->{target}: {lengths}, expected {expected}")
                 plan_container = result.get("plan")
                 if plan_container is None:

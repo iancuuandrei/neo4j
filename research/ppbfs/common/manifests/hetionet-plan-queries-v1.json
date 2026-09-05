@@ -1,0 +1,7 @@
+[
+  {"id":"H1","sourcePath":"H1_INTERACTS.cypher","parameters":{"source":29721,"target":225}},
+  {"id":"H2","sourcePath":"H2_GENE_ALTERNATION.cypher","parameters":{"source":23926,"target":10462}},
+  {"id":"H3","sourcePath":"H3_PARTICIPATION.cypher","parameters":{"source":25492,"target":2}},
+  {"id":"H4","sourcePath":"H4_COMPOUND_GENE_DISEASE.cypher","parameters":{"source":39473,"target":228}},
+  {"id":"H5","sourcePath":"H5_HETEROGENEOUS.cypher","parameters":{"source":36777,"target":2602}}
+]

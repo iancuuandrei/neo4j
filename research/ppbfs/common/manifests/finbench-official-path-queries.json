@@ -1,0 +1,37 @@
+[
+  {
+    "id": "TCR1",
+    "sourcePath": "neo4j/queries/tcr-1.cypher",
+    "parameters": {"id": 1, "start_time": 0, "end_time": 9223372036854775807}
+  },
+  {
+    "id": "TCR2",
+    "sourcePath": "neo4j/queries/tcr-2.cypher",
+    "parameters": {"id": 1, "start_time": 0, "end_time": 9223372036854775807}
+  },
+  {
+    "id": "TCR3",
+    "sourcePath": "neo4j/queries/tcr-3.cypher",
+    "parameters": {"id1": 1, "id2": 2, "start_time": 0, "end_time": 9223372036854775807}
+  },
+  {
+    "id": "TCR5",
+    "sourcePath": "neo4j/queries/tcr-5.cypher",
+    "parameters": {"id": 1, "start_time": 0, "end_time": 9223372036854775807}
+  },
+  {
+    "id": "TCR8",
+    "sourcePath": "neo4j/queries/tcr-8.cypher",
+    "parameters": {"id": 1, "start_time": 0, "end_time": 9223372036854775807, "threshold": 0.5}
+  },
+  {
+    "id": "TCR11",
+    "sourcePath": "neo4j/queries/tcr-11.cypher",
+    "parameters": {"id": 1}
+  },
+  {
+    "id": "TCR12",
+    "sourcePath": "neo4j/queries/tcr-12.cypher",
+    "parameters": {"id": 1, "start_time": 0, "end_time": 9223372036854775807}
+  }
+]

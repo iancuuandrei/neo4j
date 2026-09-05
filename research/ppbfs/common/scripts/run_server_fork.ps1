@@ -6,6 +6,8 @@ param(
     [int]$Warmups = 1,
     [int]$Repetitions = 1,
     [int]$Seed = 20260904,
+    [ValidateSet(1, 2)] [int]$ShortestCount = 2,
+    [string]$QueryFile,
     [string]$ProfileJsonl,
     [string]$ProfileSummary,
     [string]$JfrOutput,
@@ -92,7 +94,8 @@ try {
 
     $benchmarkArguments = @(
         '-u', $scriptPath, $manifestPath, $outputPath,
-        '--warmups', $Warmups, '--repetitions', $Repetitions, '--seed', $Seed
+        '--warmups', $Warmups, '--repetitions', $Repetitions, '--seed', $Seed,
+        '--shortest-count', $ShortestCount
     )
     if ($ProfileJsonl -or $ProfileSummary) {
         if (-not $ProfileJsonl -or -not $ProfileSummary) {
@@ -101,6 +104,9 @@ try {
         $profileJsonlPath = [IO.Path]::GetFullPath($ProfileJsonl)
         $profileSummaryPath = [IO.Path]::GetFullPath($ProfileSummary)
         $benchmarkArguments += @('--profile-jsonl', $profileJsonlPath, '--profile-summary', $profileSummaryPath)
+    }
+    if ($QueryFile) {
+        $benchmarkArguments += @('--query-file', (Resolve-Path -LiteralPath $QueryFile).Path)
     }
     & python @benchmarkArguments
     if ($LASTEXITCODE -ne 0) {

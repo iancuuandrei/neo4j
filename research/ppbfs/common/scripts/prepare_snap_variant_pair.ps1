@@ -3,7 +3,9 @@ param(
     [Parameter(Mandatory = $true)] [string]$PreparedCsvDirectory,
     [Parameter(Mandatory = $true)] [string]$BaselineDistribution,
     [Parameter(Mandatory = $true)] [string]$CandidateDistribution,
-    [Parameter(Mandatory = $true)] [string]$OutputRoot
+    [Parameter(Mandatory = $true)] [string]$OutputRoot,
+    [string]$NodeLabel = 'SnapNode',
+    [string]$NodeIdProperty = 'snapId'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -95,7 +97,10 @@ try {
     if (-not $ready) {
         throw "Neo4j did not become ready for index creation; inspect $serverOut and $serverErr"
     }
-    Invoke-Cypher 'CREATE INDEX snap_node_id IF NOT EXISTS FOR (n:SnapNode) ON (n.snapId)'
+    if ($NodeLabel -notmatch '^[A-Za-z_][A-Za-z0-9_]*$' -or $NodeIdProperty -notmatch '^[A-Za-z_][A-Za-z0-9_]*$') {
+        throw 'NodeLabel and NodeIdProperty must be simple Cypher identifiers.'
+    }
+    Invoke-Cypher "CREATE INDEX benchmark_node_id IF NOT EXISTS FOR (n:$NodeLabel) ON (n.$NodeIdProperty)"
     Invoke-Cypher 'CALL db.awaitIndexes(300)'
 } finally {
     Stop-DistributionProcesses $baselineOutput
@@ -129,6 +134,8 @@ $record = [ordered]@{
     schemaVersion = 1
     createdAt = (Get-Date).ToUniversalTime().ToString('o')
     dataset = $DatasetName
+    nodeLabel = $NodeLabel
+    nodeIdProperty = $NodeIdProperty
     preparedCsvDirectory = $prepared
     preparedCsv = @($requiredCsv | ForEach-Object {
         $file = Get-Item -LiteralPath (Join-Path $prepared $_)
