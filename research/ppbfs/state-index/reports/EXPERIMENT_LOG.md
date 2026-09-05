@@ -238,3 +238,19 @@ analysis, near-limit tests, or multi-topology memory evidence.
   lightweight GitHub issue/PR searches found no overlapping implementation.
 - Final classification remains `GO — APPROACH NEO4J MAINTAINERS WITH MEASURED
   TRADE-OFF`. No upstream issue or PR was opened.
+
+## 2026-09-05 — Maintainer contact
+
+- Reverified clean worktrees and exact heads before mutation: research
+  `81ea6c0cefb`, observability `3b0413e37db`, clean candidate `0a8ef51868e`, and
+  upstream `2026.07@f213380f812`.
+- Confirmed the upstream history scan remains and found no overlapping open or
+  merged implementation in the final lightweight issue/PR search.
+- Updated personal-fork research PR #1 with the completed evidence, posted a
+  closing provenance comment, and closed it without merge. Its branch remains.
+- Verified personal-fork PR #2 remains open/draft with two commits, three files,
+  and no research or instrumentation content.
+- Opened exactly one upstream maintainer issue:
+  `https://github.com/neo4j/neo4j/issues/13966` at `2026-09-05T18:22:39Z`.
+- No upstream PR, reviewer request, CLA action, candidate change, or additional
+  benchmark was performed.

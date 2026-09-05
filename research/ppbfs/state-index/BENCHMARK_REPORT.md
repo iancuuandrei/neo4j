@@ -10,6 +10,8 @@ The original acceptance contract rejected any candidate that failed a fixed memo
 
 This is permission to discuss the evidence and prepare a clean patch, not a claim that maintainers should accept C1.
 
+Maintainer contact was opened as [`neo4j/neo4j#13966`](https://github.com/neo4j/neo4j/issues/13966) on 2026-09-05. Personal-fork research PR #1 was finalized and closed without merge; clean candidate PR #2 remains open and draft.
+
 ## Evidence binding
 
 ```text
