@@ -2,7 +2,7 @@
 
 ## Executive result
 
-`MEASURED`: C1 removes the history-depth-linear `FoundNodes.get` hotspot and produces large, reproducible road-network gains, a smaller positive result on web-Stanford, and neutral behavior on the low-diameter as-Skitter control. It also has a real but workload-dependent tracked-memory/allocation cost.
+`MEASURED`: C1 removes the history-depth-linear `FoundNodes.get` hotspot and produces large, reproducible road-network gains plus a smaller positive result on web-Stanford. The original as-Skitter control interval includes both small gains and small regressions and is therefore statistically unresolved, not proven neutral. C1 also has a real but workload-dependent tracked-memory/allocation cost.
 
 The original acceptance contract rejected any candidate that failed a fixed memory limit passed by baseline. C1 therefore formally failed that gate. This continuation preserves that result and treats it as a measured compatibility trade-off, rather than equating it automatically with an unacceptable production regression.
 
@@ -50,7 +50,9 @@ Speedup is B0 time divided by C1 time.
 | web-Stanford, depth 2–140 | 13 | 1.079x | [1.060x, 1.098x] |
 | as-Skitter, depth 2–30 | 13 | 1.014x | [0.989x, 1.039x] |
 
-`MEASURED`: roadNet-CA independently replicates the depth-dependent effect: 1.118x at d10, 1.738x at d100, 3.407x at d250, 5.213x at d500, and 8.328x at d800. web-Stanford grows from neutral at d2–10 to 1.269x at d140. as-Skitter is neutral overall, answering the low-diameter regression question favorably.
+`MEASURED`: roadNet-CA independently replicates the depth-dependent effect: 1.118x at d10, 1.738x at d100, 3.407x at d250, 5.213x at d500, and 8.328x at d800. web-Stanford reaches 1.269x at d140. as-Skitter's 1.014x aggregate `[0.989,1.039]` is unresolved under the later practical-significance contract.
+
+The external falsification suite adds cit-Patents 1.220x `[0.977,1.524]` (inconclusive), gMark 1.246x `[0.578,2.685]` (inconclusive), Hetionet H3 0.996x with TOST-style 90% interval `[0.962,1.032]` (equivalent within +/-5%), and LiveJournal 0.948x with 90% interval `[0.811,1.108]` (inconclusive). These results strengthen semantic breadth while leaving the shallow high-fanout regression question unresolved.
 
 `NOT RUN`: LDBC SNB SF10. No prepared SF10 store or naturally qualifying PPBFS manifest existed, and forcing a synthetic StatefulShortestPath shape would not provide the intended realistic-regression evidence.
 
@@ -98,7 +100,7 @@ JFR v1–v5 are retained but excluded from allocation conclusions because they a
 
 C1 passed focused canonical identity, historical lookup, bidirectional sharing, duplicate rejection, frontier retirement, interruption cleanup, generated differential tests, and the existing PPBFS suite. Its representation is the simplest candidate: one query-local node-major canonical repository using Neo4j tracked collections. C2 and C3 remain useful negative comparators but are not production candidates.
 
-The extracted clean contribution branch ran 76 focused tests with zero failures/errors and five existing skips; Spotless passed. A later attempt to run the entire runtime-util module was `BLOCKED` when a parallel Surefire JVM could not reserve 500 MiB because the Windows paging file was too small. Thirty-nine test classes, including the focused and generated PPBFS suites, completed before the stalled Maven process was terminated. This is not reported as a full-module PASS.
+The extracted clean contribution branch ran 76 focused tests with zero failures/errors and five existing skips; Spotless passed. A later clean rerun of the entire runtime-util module passed: 526 tests, zero failures/errors, five skips, Maven elapsed 20.190 seconds (22.414 seconds wall). The earlier paging-file failure remains preserved as an environmental failed attempt, not the final suite status.
 
 ## Pareto conclusion
 

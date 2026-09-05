@@ -5,7 +5,7 @@ The original strict gate is preserved: C1, C2, and C3 fail at least one fixed li
 | Candidate | Representation | Performance | Memory | Current status |
 | --- | --- | --- | --- | --- |
 | B0 | level-partitioned node-major history | depth-linear hotspot | best strict boundary | Pareto reference |
-| C1 | canonical node→dense state array | strongest; cross-topology benefit | small/workload-dependent cost | primary maintainer-discussion candidate |
+| C1 | canonical node→dense state array | strongest road/web result; Hetionet H3 equivalent; LiveJournal unresolved | small/workload-dependent cost | primary maintainer-discussion candidate |
 | C2 | canonical state→primitive node map | 89.9% overall / 85.6% deep C1 retention in PA screen | PA d250 first pass 94 vs C1 93/B0 92 MiB | dominated in current evidence; retain provenance |
 | C3 | adaptive node-major tiny sparse→dense | not timed after strict gate | failed PA 92 MiB | non-selected; retain provenance |
 

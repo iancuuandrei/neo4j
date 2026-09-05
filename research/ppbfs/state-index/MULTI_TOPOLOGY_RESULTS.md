@@ -15,9 +15,9 @@
 
 roadNet-CA reproduces the predicted depth response: 1.118x at d10, 1.089x at d25, 1.227x at d50, 1.738x at d100, 3.407x at d250, 5.213x at d500, and 8.328x at d800. The d250+ aggregate is 5.289x `[4.808,5.818]`.
 
-web-Stanford is neutral at d2–10, then 1.057x at d25, 1.130x at d50, 1.196x at d100, and 1.269x at d140. as-Skitter remains statistically neutral overall; only d20 shows a small isolated 1.047x gain.
+web-Stanford is unresolved near 1x at d2–10, then 1.057x at d25, 1.130x at d50, 1.196x at d100, and 1.269x at d140. as-Skitter remains statistically unresolved overall; only d20 shows a small isolated 1.047x gain.
 
-`INFERRED`: benefit follows effective history depth rather than merely graph size. The low-diameter control provides no evidence of a broad latency penalty.
+`INFERRED`: benefit follows effective history depth rather than merely graph size. The original low-diameter control did not resolve a broad latency penalty; later Hetionet H3 equivalence is stronger practical non-regression evidence, while LiveJournal remains inconclusive.
 
 ## Selection and limits
 

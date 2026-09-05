@@ -5,11 +5,24 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from analyze_paired_runs import analyze, load_csv
+from analyze_paired_runs import analyze, load_csv, summarize_speedups
 from cypher_http_benchmark import find_operator
 
 
 class AnalyzePairedRunsTest(unittest.TestCase):
+    def test_practical_classification_uses_log_ratio_equivalence_bounds(self) -> None:
+        equivalent = summarize_speedups([1.0] * 5)
+        positive = summarize_speedups([1.1] * 5)
+        non_inferior = summarize_speedups([0.98, 1.0, 1.04, 1.08, 1.15])
+        regression = summarize_speedups([0.8] * 5)
+        inconclusive = summarize_speedups([0.8, 0.9, 1.0, 1.1, 1.2])
+
+        self.assertEqual("EQUIVALENT WITHIN +/-5%", equivalent["practicalClassification"])
+        self.assertEqual("POSITIVE", positive["practicalClassification"])
+        self.assertEqual("PRACTICALLY NON-INFERIOR", non_inferior["practicalClassification"])
+        self.assertEqual("MATERIAL REGRESSION", regression["practicalClassification"])
+        self.assertEqual("INCONCLUSIVE", inconclusive["practicalClassification"])
+
     def test_find_operator_fails_closed_and_finds_nested_expected_operator(self) -> None:
         plan = {
             "operatorType": "ProduceResults",

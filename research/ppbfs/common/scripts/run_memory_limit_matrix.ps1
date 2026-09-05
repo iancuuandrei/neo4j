@@ -9,7 +9,8 @@ param(
     [Parameter(Mandatory = $true)] [string]$OutputDirectory,
     [string]$BaselineLabel = 'b0',
     [string]$CandidateLabel = 'c1',
-    [string[]]$OnlyLimit
+    [string[]]$OnlyLimit,
+    [string]$QueryFile
 )
 
 $ErrorActionPreference = 'Stop'
@@ -143,7 +144,9 @@ foreach ($limit in $limits) {
             }
 
             $role = if ($variant.Name -eq $BaselineLabel) { 'baseline' } else { 'candidate' }
-            & python -u $probeScript $manifestPath $jsonlPath --limit $limit --role $role
+            $probeArguments = @('-u', $probeScript, $manifestPath, $jsonlPath, '--limit', $limit, '--role', $role)
+            if ($QueryFile) { $probeArguments += @('--query-file', (Resolve-Path -LiteralPath $QueryFile).Path) }
+            & python @probeArguments
             if ($LASTEXITCODE -ne 0) {
                 throw "$stem probe exited with code $LASTEXITCODE"
             }

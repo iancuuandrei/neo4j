@@ -23,6 +23,8 @@ There is a measured cost. On roadNet-PA d250, unchanged upstream passes a 92 MiB
 
 We also tried state-major primitive maps (C2) and adaptive tiny-sparse→dense node buckets (C3). C2 first passed the PA d250 limit at 94 MiB and was slower than C1 in screening; C3 did not recover the 92 MiB boundary. They are retained as non-selected comparators.
 
+An external falsification suite added native-semantics workloads. cit-Patents was practically non-inferior under a +/-5% margin (1.220x, 95% CI `[0.977,1.524]`, 90% CI `[1.029,1.448]`). Ten paired Hetionet H3 forks established equivalence within +/-5% (0.996x, 90% CI `[0.962,1.032]`). LiveJournal remained inconclusive (0.948x, 95% CI `[0.782,1.149]`), so a possible shallow high-fanout regression is disclosed rather than dismissed. A generated gMark instance was too shallow and variable to resolve the question.
+
 The original experiment correctly classified C1 as failing a strict identical-limit gate. The broader evidence now leaves an engineering trade-off rather than a correctness failure or broad performance regression.
 
 Questions for maintainers:

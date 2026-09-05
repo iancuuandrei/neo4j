@@ -46,6 +46,15 @@ T_975 = {
     30: 2.042,
 }
 
+T_95 = {
+    1: 6.314, 2: 2.920, 3: 2.353, 4: 2.132, 5: 2.015, 6: 1.943,
+    7: 1.895, 8: 1.860, 9: 1.833, 10: 1.812, 11: 1.796,
+    12: 1.782, 13: 1.771, 14: 1.761, 15: 1.753, 16: 1.746,
+    17: 1.740, 18: 1.734, 19: 1.729, 20: 1.725, 21: 1.721,
+    22: 1.717, 23: 1.714, 24: 1.711, 25: 1.708, 26: 1.706,
+    27: 1.703, 28: 1.701, 29: 1.699, 30: 1.697,
+}
+
 
 def percentile(values: list[float], probability: float) -> float:
     ordered = sorted(values)
@@ -74,16 +83,34 @@ def summarize_speedups(speedups: list[float]) -> dict[str, float | int]:
         margin = critical * standard_deviation / math.sqrt(len(logs))
         lower = math.exp(mean_log - margin)
         upper = math.exp(mean_log + margin)
+        equivalence_margin = T_95.get(len(logs) - 1, 1.645) * standard_deviation / math.sqrt(len(logs))
+        confidence90_lower = math.exp(mean_log - equivalence_margin)
+        confidence90_upper = math.exp(mean_log + equivalence_margin)
         effect_size = mean_log / standard_deviation if standard_deviation else math.inf
     else:
         lower = upper = math.exp(mean_log)
+        confidence90_lower = confidence90_upper = math.exp(mean_log)
         effect_size = math.nan
+    if lower > 1.0:
+        practical_classification = "POSITIVE"
+    elif confidence90_lower >= 0.95 and confidence90_upper <= 1.05:
+        practical_classification = "EQUIVALENT WITHIN +/-5%"
+    elif confidence90_lower >= 0.95:
+        practical_classification = "PRACTICALLY NON-INFERIOR"
+    elif upper < 0.95:
+        practical_classification = "MATERIAL REGRESSION"
+    else:
+        practical_classification = "INCONCLUSIVE"
     return {
         "forks": len(speedups),
         "geometricMeanSpeedup": math.exp(mean_log),
         "medianSpeedup": statistics.median(speedups),
         "confidence95Lower": lower,
         "confidence95Upper": upper,
+        "confidence90Lower": confidence90_lower,
+        "confidence90Upper": confidence90_upper,
+        "practicalRegressionMargin": 0.05,
+        "practicalClassification": practical_classification,
         "pairedLogCohenDz": effect_size,
         "minimumSpeedup": min(speedups),
         "maximumSpeedup": max(speedups),
@@ -334,6 +361,10 @@ def markdown_report(result: dict[str, Any]) -> str:
             f"- `{name}` ({aggregate['caseCount']} cases; distances {aggregate['distances']}): "
             f"{speedup['geometricMeanSpeedup']:.3f}× "
             f"(95% CI {speedup['confidence95Lower']:.3f}–{speedup['confidence95Upper']:.3f}×)."
+        )
+        lines.append(
+            f"  Practical ±5% classification: **{speedup['practicalClassification']}**; "
+            f"TOST-style 90% CI {speedup['confidence90Lower']:.3f}–{speedup['confidence90Upper']:.3f}×."
         )
     lines.extend(
         [

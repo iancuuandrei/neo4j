@@ -1,0 +1,7 @@
+case_id,source,target,distance,limit,expected,expected_paths_min
+H3-d6-8m,25492,13580,6,8m,OBSERVE,2
+H3-d6-9m,25492,13580,6,9m,OBSERVE,2
+H3-d6-10m,25492,13580,6,10m,OBSERVE,2
+H3-d6-11m,25492,13580,6,11m,OBSERVE,2
+H3-d6-12m,25492,13580,6,12m,OBSERVE,2
+H3-d6-13m,25492,13580,6,13m,OBSERVE,2

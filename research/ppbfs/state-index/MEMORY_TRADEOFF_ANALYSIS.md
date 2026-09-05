@@ -18,14 +18,20 @@
 | roadNet-CA | 250 | 102 | 104 | +2 MiB | +1.96% |
 | roadNet-CA | 500 | 1288 | 1296 | +8 MiB | +0.62% |
 | roadNet-CA | 800 | 1732 | 1732 | 0 MiB | 0% |
+| cit-Patents | 12 | 8 | 8 | 0 MiB | 0% |
+| Hetionet H3 | 6 | 10 | 10 | 0 MiB | 0% |
+| LiveJournal | 3 | 2 | 2 | 0 MiB | 0% |
+| gMark | 2 | 2 | 2 | 0 MiB | 0% |
 
 These are minimum **observed** points from targeted adjacent/coarse probes, not mathematical minima from exhaustive searches.
+
+For LiveJournal and gMark, 2 MiB is also the lowest server-usable setting in this setup. Below that, the system database fails during startup when its first 2 MiB tracked reservation cannot fit. Those attempts are infrastructure exclusions, not query-level failures, and make no claim below 2 MiB.
 
 ## PROFILE high-water curve
 
 `MEASURED`: C1/B0 operator-memory deltas are small on both road networks but larger on contrasting topologies: PA `[-2.91%,+1.46%]`, CA `[-0.10%,+2.18%]`, web-Stanford `[+5.80%,+9.94%]`, and as-Skitter mostly negative through d12 but `[+8.80%,+9.70%]` at d20/d30.
 
-DB hits and returned rows match for every pair. The evidence does not support a constant cost or a monotonic depth-scaled blow-up. It supports workload-dependent additional canonical-map backing storage, approximately proportional to reached product-state/node structure in the observed cases. Exact `U`, `N`, and occupancy distributions were not exposed by the non-instrumented production build and are `NOT MEASURED` in this continuation.
+DB hits and returned rows match for every pair. The evidence does not support a constant cost or a monotonic depth-scaled blow-up. It supports workload-dependent additional canonical-map backing storage. Research-only Hetionet instrumentation measured `U`, `N`, and occupancy; high occupancy with shallow history remained near parity, so occupancy alone does not explain latency. See `PRODUCT_STATE_OCCUPANCY_ANALYSIS.md`.
 
 ## Why 92 becomes 93
 

@@ -82,7 +82,9 @@ def main() -> None:
     parser.add_argument("--port", type=int, default=7474)
     parser.add_argument("--limit", required=True)
     parser.add_argument("--role", choices=("baseline", "candidate"), required=True)
+    parser.add_argument("--query-file", type=Path)
     args = parser.parse_args()
+    query = args.query_file.read_text(encoding="utf-8") if args.query_file else QUERY
 
     if args.output.exists():
         raise FileExistsError(f"append-only protection: {args.output} already exists")
@@ -131,7 +133,7 @@ def main() -> None:
             for case in cases:
                 result = request(
                     connection,
-                    QUERY,
+                    query,
                     {"source": int(case["source"]), "target": int(case["target"])},
                 )
                 errors = result["payload"]["errors"]
@@ -155,7 +157,8 @@ def main() -> None:
                 output.write(json.dumps(record, separators=(",", ":")) + "\n")
                 output.flush()
 
-                if observed == "PASS" and (len(lengths) != 2 or min(lengths) != int(case["distance"])):
+                minimum_paths = int(case.get("expected_paths_min") or 2)
+                if observed == "PASS" and (len(lengths) < minimum_paths or min(lengths) != int(case["distance"])):
                     mismatches.append(f"{case['case_id']}: unexpected results {lengths}")
                 if observed == "FAIL" and not is_transaction_memory_error(errors):
                     mismatches.append(f"{case['case_id']}: failure was not the transaction memory limit: {errors}")

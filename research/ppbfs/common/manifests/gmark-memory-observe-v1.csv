@@ -1,0 +1,6 @@
+case_id,source,target,distance,limit,expected,expected_paths_min
+gmark-d2-2m,13277,25650,2,2m,OBSERVE,1
+gmark-d2-3m,13277,25650,2,3m,OBSERVE,1
+gmark-d2-4m,13277,25650,2,4m,OBSERVE,1
+gmark-d2-5m,13277,25650,2,5m,OBSERVE,1
+gmark-d2-6m,13277,25650,2,6m,OBSERVE,1

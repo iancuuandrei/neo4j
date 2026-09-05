@@ -1,0 +1,6 @@
+case_id,source,target,distance,limit,expected,expected_paths_min
+lj-d3-2m,1865901,74,3,2m,OBSERVE,1
+lj-d3-3m,1865901,74,3,3m,OBSERVE,1
+lj-d3-4m,1865901,74,3,4m,OBSERVE,1
+lj-d3-5m,1865901,74,3,5m,OBSERVE,1
+lj-d3-6m,1865901,74,3,6m,OBSERVE,1

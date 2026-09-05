@@ -203,3 +203,38 @@ analysis, near-limit tests, or multi-topology memory evidence.
   freezes the P1-P5 hypotheses, selection rules, exact variants, statistical
   method, correctness/operator gates, occupancy metrics, and D:-only bulky
   artifact policy.
+
+## 2026-09-05 — External falsification suite
+
+- FinBench official path queries were qualified before import. None selected the
+  PPBFS operator, so the workload is retained as `NON-QUALIFYING FOR DIRECT
+  PPBFS EVIDENCE`; no SF1 store was downloaded merely to create a favorable test.
+- Imported native-semantics Hetionet, cit-Patents, LiveJournal, and a pinned
+  original-gMark instance into identical B0/C1 stores on D:. Dataset hashes and
+  conversion rules are in `DATASET_PROVENANCE.md`.
+- cit-Patents five-fork aggregate was 1.220x `[0.977,1.524]`; its TOST-style 90%
+  interval `[1.029,1.448]` establishes practical non-inferiority, not a
+  conventional positive effect.
+- Hetionet H1-H4 five-fork screens were unresolved. The predeclared ten-fork H3
+  extension was 0.996x with 90% interval `[0.962,1.032]`, equivalent within
+  +/-5%. H5 timing was excluded in full after slow baseline-only screening; no
+  C1 timing or favorable subset was used.
+- LiveJournal ten-fork extension was 0.948x `[0.782,1.149]`, 90% interval
+  `[0.811,1.108]`: inconclusive. Its ~5.2% point slowdown is disclosed without
+  claiming either neutrality or material regression.
+- gMark materialized only 27,038 nodes/36,088 edges and sampled diameter 3. Its
+  shallow result was 1.246x `[0.578,2.685]`, inconclusive, and cannot substitute
+  for the planned deep RPQ matrix.
+- Research-only occupancy branch `benchmark/ppbfs-external-observability` at
+  `3b0413e37db` measured Hetionet U/N/rho/history debt without altering either
+  frozen timing variant. High occupancy plus shallow history stayed near parity;
+  occupancy alone is not predictive.
+- Fixed limits were equal at cit-Patents d12 (8 MiB), Hetionet H3 d6 (10 MiB),
+  LiveJournal d3 (2 MiB), and gMark d2 (2 MiB). Below 2 MiB the server itself
+  cannot start because its first 2 MiB tracked reservation cannot fit.
+- Short external JFR recordings showed +0.6% to +3.3% thread allocation and no
+  obvious GC pathology; they are supporting single-run evidence only.
+- Upstream refresh remained `2026.07@f213380f...`; the history scan remains and
+  lightweight GitHub issue/PR searches found no overlapping implementation.
+- Final classification remains `GO — APPROACH NEO4J MAINTAINERS WITH MEASURED
+  TRADE-OFF`. No upstream issue or PR was opened.

@@ -21,8 +21,11 @@ At upstream baseline `f213380f812b820a1b312e2ea52cb3d8f1931ccc`, controlled dept
 | roadNet-CA d250+ | 5.289x | [4.808x, 5.818x] |
 | web-Stanford | 1.079x | [1.060x, 1.098x] |
 | as-Skitter control | 1.014x | [0.989x, 1.039x] |
+| cit-Patents d1–12 | 1.220x | [0.977x, 1.524x] |
+| Hetionet H3 extension | 0.996x | [0.954x, 1.041x] |
+| LiveJournal extension | 0.948x | [0.782x, 1.149x] |
 
-All timed cases returned identical results and executed the intended operator.
+All timed cases returned identical results and executed the intended operator. Under the predeclared +/-5% practical margin, Hetionet H3 is equivalent (90% CI `[0.962,1.032]`) and cit-Patents is practically non-inferior (`[1.029,1.448]`). LiveJournal remains inconclusive and is an explicit common-case risk, not evidence of neutrality.
 
 ## Explicit trade-off
 
@@ -39,7 +42,7 @@ This must be discussed with maintainers before an upstream PR is opened. The pul
 - existing generated/differential PPBFS coverage;
 - focused query-memory accounting.
 
-Local clean-branch result: 76 focused tests, 0 failures/errors, 5 existing skips; Spotless PASS. Full runtime-util module: `BLOCKED` by a Windows paging-file reservation failure in a parallel test JVM, not claimed as PASS.
+Local clean-branch result: 76 focused tests, 0 failures/errors, 5 existing skips; Spotless PASS. Full runtime-util module using the repository-supported sequential profile: 526 tests, 0 failures/errors, 5 existing skips, PASS. The earlier parallel paging-file failure is retained as environmental provenance.
 
 ## Scope
 

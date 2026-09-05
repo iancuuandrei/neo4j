@@ -27,6 +27,18 @@ Both variants are dominated by PPBFS work: `Lengths.ValidatingLengths` arrays, `
 
 `LIMITATION`: this is one representative combined manifest, not independent per-case allocation distributions. Weighted sampling is an estimate. It is strong enough to identify direction and major sites, not exact per-object cost.
 
+## External supporting recordings
+
+Short single representative JFR recordings were added as supporting evidence only:
+
+| Workload | B0 thread allocation | C1 thread allocation | Delta | B0/C1 GC count | B0/C1 pause |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| cit-Patents d12 | 309.9 MiB | 320.0 MiB | +3.3% | 3 / 2 | 35.0 / 20.7 ms |
+| Hetionet H3 d6 | 330.6 MiB | 341.5 MiB | +3.3% | 2 / 3 | 21.9 / 31.3 ms |
+| LiveJournal d3 | 206.6 MiB | 207.8 MiB | +0.6% | 2 / 3 | 20.9 / 35.0 ms |
+
+`MEASURED`: none shows an allocation blow-up or repeated major-GC pattern. `LIMITATION`: each is one short recording, so GC count and pause differences are descriptive only and cannot establish a regression or equivalence.
+
 ```text
 B0 JFR SHA-256: 239E00711633C1B4D4D590F72F95209DC78AE2A490C93C835A5D91D999710B70
 C1 JFR SHA-256: EEA86C206CD285E49E3742388809696CA2BCC313E27B8672D07BAA1C7DE8952A
