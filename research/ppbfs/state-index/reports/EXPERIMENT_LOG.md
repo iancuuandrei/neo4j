@@ -160,3 +160,33 @@ analysis, near-limit tests, or multi-topology memory evidence.
 - B0 remains the retained design. No direct-state-index contribution branch or
   upstream PR is justified.
 - Canonical report: `state-index/results/2026-09-04/C3_ROADNET_PA.md`.
+
+## 2026-09-05 — Pareto continuation and multi-topology replication
+
+- Preserved the strict-gate result and changed only its interpretation: C1 fails
+  identical-limit compatibility, but that fact is not itself a production veto.
+- Added deterministic manifests and identical indexed B0/C1 stores for
+  roadNet-CA, web-Stanford, and undirected materialized as-Skitter. All bulky
+  state remains on D: and all included PROFILE plans used
+  `StatefulShortestPath(Into, Trail)` with equal results/DB hits.
+- Fixed the paired analyzer to identify cases by source/target/distance rather
+  than collapsing multiple pairs at one distance; 12 harness tests passed.
+- Five paired JVM forks measured: roadNet-CA 2.340x overall and 5.289x d250+;
+  web-Stanford 1.079x overall; as-Skitter 1.014x overall. Confidence intervals
+  and raw hashes are in `MULTI_TOPOLOGY_RESULTS.md`.
+- LDBC SF10 was not prepared and no naturally qualifying manifest existed;
+  forcing a synthetic operator shape was rejected as non-decision-relevant.
+- Extended fixed-limit probing. PA d100/d500/d772 were equal and d250 shifted
+  92→93 MiB. CA shifted 102→104 at d250 and 1288→1296 at d500, while d100/d800
+  were equal. Large setting values required a narrow `SHOW SETTINGS` display
+  rounding tolerance; interrupted v1/v2 discovery runs remain preserved.
+- JFR v1–v5 accidentally attached to Neo4j's Java launcher. Impossible
+  near-zero allocation exposed the flaw; these runs are retained and excluded.
+  v6 binds to the database JVM and records +5.5–7.0% total C1 allocation, 23 vs
+  25 GCs, and 0.966 vs 0.934 seconds total pause.
+- Refreshed upstream: `2026.07` remains at
+  `f213380f812b820a1b312e2ea52cb3d8f1931ccc`; the history scan remains and no
+  obvious open/recent merged overlapping implementation was found.
+- Final Pareto result: B0 and C1 are non-dominated. C2/C3 remain non-selected
+  comparators. C4 was not implemented.
+- Final classification: `GO — APPROACH NEO4J MAINTAINERS WITH MEASURED TRADE-OFF`.

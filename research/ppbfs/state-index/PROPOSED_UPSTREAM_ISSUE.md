@@ -1,36 +1,34 @@
-# WITHHELD — proposed upstream issue
+# Draft upstream issue — do not post automatically
 
-Status: `DO NOT POST`. The experiment ended in a memory-gate NO-GO and selected
-no production design. This local draft exists only to make the upstream-contact
-decision explicit.
+## Title
 
-## Candidate title
-
-StatefulShortestPath: history-depth-linear product-state lookup investigation
+StatefulShortestPath: investigate history-depth-linear product-state lookup in FoundNodes
 
 ## Draft
 
-At `neo4j/neo4j@f213380f812b820a1b312e2ea52cb3d8f1931ccc`,
-`BFSExpander.encounter` resolves `(nodeId,stateId)` through `FoundNodes.get`,
-which probes active structures and historical BFS levels. Controlled chain
-instrumentation reached 8,382,465 history probes for 4,097 accepted lookups at
-depth 4096, and a roadNet-PA profile attributed 50.9% of sampled baseline
-execution to `FoundNodes.get`.
+We investigated a query-local lookup behavior in `StatefulShortestPath` at `neo4j/neo4j@f213380f812b820a1b312e2ea52cb3d8f1931ccc` (`2026.07`). `BFSExpander.encounter` resolves `(nodeId,stateId)` through `FoundNodes.get`; after checking active structures, `get` scans historical BFS levels newest-to-oldest.
 
-A canonical node-major prototype reduced the deep roadNet-PA geometric-mean
-latency by 4.373x, 95% CI `[2.126x,8.993x]`, while preserving returned path
-lengths. However, it failed at `db.memory.transaction.max=92m` where unchanged
-upstream passed. State-major primitive maps first passed at 94 MiB, and an
-adaptive two-inline-slot node bucket also failed at 92 MiB. All candidates used
-tracked allocations and passed focused identity/differential tests.
+Controlled chain instrumentation recorded 8,382,465 historical probes for 4,097 accepted lookup attempts at depth 4096. In a roadNet-PA JFR, `FoundNodes.get` appeared in 468/919 baseline execution samples (50.9%). A query-local canonical node-major prototype reduced that to 2/817 samples (0.24%).
 
-Selected design: none. The unchanged level-partitioned repository is retained.
-No compatibility, persistence, API, or migration change is proposed.
+Five-paired-fork unprofiled timing found:
 
-If this topic is revisited, the maintainer question is whether a different
-memory contract or a fundamentally different non-duplicating representation is
-worth exploring. Under the present requirement that a patch pass every limit
-the baseline passes, there is no patch to review.
+- roadNet-PA d250/d500/d772 aggregate: 4.373x, 95% CI `[2.126x,8.993x]`;
+- independent roadNet-CA d250+ aggregate: 5.289x `[4.808x,5.818x]`;
+- web-Stanford d2–140 aggregate: 1.079x `[1.060x,1.098x]`;
+- low-diameter as-Skitter control: 1.014x `[0.989x,1.039x]`.
 
-Evidence: `BENCHMARK_REPORT.md`, `reports/SOURCE_AUDIT.md`, and the append-only
-raw roots recorded in the dated result reports.
+All included queries returned identical results and PROFILE-confirmed `StatefulShortestPath(Into, Trail)`. Focused identity, bidirectional, lifecycle, interruption, and generated differential tests passed.
+
+There is a measured cost. On roadNet-PA d250, unchanged upstream passes a 92 MiB transaction-memory limit while the prototype first passes at 93 MiB. The shift was workload-dependent: PA d100/d500/d772 were equal; roadNet-CA observed 102→104 MiB at d250, 1288→1296 MiB at d500, and equality at d100/d800. PROFILE memory ranged from small/negative road-network deltas to roughly +10% on selected web/Skitter cases. A representative JFR workload estimated +5.5–7.0% total allocation, with 23 vs 25 GCs and similar absolute GC pause (0.966 vs 0.934 seconds).
+
+We also tried state-major primitive maps (C2) and adaptive tiny-sparse→dense node buckets (C3). C2 first passed the PA d250 limit at 94 MiB and was slower than C1 in screening; C3 did not recover the 92 MiB boundary. They are retained as non-selected comparators.
+
+The original experiment correctly classified C1 as failing a strict identical-limit gate. The broader evidence now leaves an engineering trade-off rather than a correctness failure or broad performance regression.
+
+Questions for maintainers:
+
+1. Is a small increase in query-memory headroom acceptable for this level of deep `StatefulShortestPath` speedup?
+2. Is there an internal data structure or intended ownership model that would be preferable for canonical `(nodeId,stateId)` lookup?
+3. Would a minimal C1 patch plus focused correctness/memory tests be useful for review, or should this remain an investigation first?
+
+We are not claiming the prototype should be accepted as-is. Detailed protocol, raw hashes, memory curves, and negative candidate results are available in the research branch.

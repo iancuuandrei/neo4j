@@ -1,209 +1,117 @@
 # PPBFS direct product-state repository benchmark report
 
-## 1. Executive verdict
+## Executive result
 
-`MEASURED`: the baseline history scan is materially expensive on deep PPBFS
-workloads, and C1 removes that cost with a 4.373x deep roadNet-PA geometric-mean
-speedup. However, every tested direct canonical repository fails the mandatory
-fixed-memory condition that B0 passes. C3, the final permitted Pareto-recovery
-candidate, failed the first 92 MiB gate. The production result is therefore B0
-unchanged and no upstream proposal.
+`MEASURED`: C1 removes the history-depth-linear `FoundNodes.get` hotspot and produces large, reproducible road-network gains, a smaller positive result on web-Stanford, and neutral behavior on the low-diameter as-Skitter control. It also has a real but workload-dependent tracked-memory/allocation cost.
 
-## 2. Exact environment
+The original acceptance contract rejected any candidate that failed a fixed memory limit passed by baseline. C1 therefore formally failed that gate. This continuation preserves that result and treats it as a measured compatibility trade-off, rather than equating it automatically with an unacceptable production regression.
+
+**Final classification:** `GO — APPROACH NEO4J MAINTAINERS WITH MEASURED TRADE-OFF`
+
+This is permission to discuss the evidence and prepare a clean patch, not a claim that maintainers should accept C1.
+
+## Evidence binding
 
 ```text
-audit date: 2026-09-04 Europe/Bucharest
 repository: neo4j/neo4j
 upstream branch: 2026.07
-baseline SHA: f213380f812b820a1b312e2ea52cb3d8f1931ccc
-OS: Windows 11 Pro 25H2 build 26200.9168 x86-64
-CPU: AMD Ryzen 9 9955HX, 16 physical / 32 logical cores
-RAM: approximately 31.2 GiB
-JDK: Eclipse Temurin 21.0.12.1+1 LTS
-Maven: 3.9.11
-server heap: 4 GiB initial / 4 GiB maximum
-page cache: 8 GiB
-large artifacts and Maven cache: D:
+upstream baseline: f213380f812b820a1b312e2ea52cb3d8f1931ccc
+B0 timing variant: 1529bdd7fdb8fbbee28cbee7cf2f44c3379e2381
+C1 variant: caf33be9f5de2d8d7f4a291abd466cf808aaf801
+runtime: Eclipse Temurin 21.0.12.1+1 LTS
+OS: Windows 11 Pro, AMD Ryzen 9 9955HX, about 31.2 GiB RAM
+server heap/page cache: 4 GiB / 8 GiB
+bulky artifacts: D:/dev/neo4j-research/artifacts/ppbfs
 ```
 
-Distribution, configuration, dataset, manifest, JVM, and hardware metadata are
-bound to retained runs. Candidate reports record exact source and runtime-JAR
-hashes.
+The 2026-09-05 upstream refresh left `upstream/2026.07` at the same SHA. `FoundNodes.get` still scans `history` newest-to-oldest. GitHub searches found no open or recent merged overlapping implementation.
 
-## 3. Hypothesis
+## Source and controlled causal evidence
 
-`DERIVED`: replacing history-depth-linear lookup with expected-constant-time
-query-local canonical lookup should reduce the lookup component from
-`Theta(X + sum(h_i))` to expected `Theta(X)`. It is acceptable only if object
-identity, results, query-memory behavior, and ordinary latency remain safe.
+- `SOURCE-CONFIRMED`: `BFSExpander.encounter` calls `FoundNodes.get(nodeId,stateId)`; the latter checks active structures and then scans historical levels.
+- `DERIVED`: one accepted new product state per depth makes lookup bookkeeping quadratic in depth; a canonical direct repository makes lookup expected linear in the number of lookup attempts.
+- `MEASURED`: at chain depth 4096, B0 performed 8,382,465 historical probes for 4,097 accepted lookup attempts.
+- `MEASURED`: B0 JFR placed `FoundNodes.get` in 468/919 execution samples (50.9%); C1 reduced this to 2/817 (0.24%).
 
-## 4. Source-confirmed problem
+## Timing protocol
 
-`SOURCE-CONFIRMED`: at B0, `BFSExpander.encounter` calls
-`FoundNodes.get(nodeId,stateId)` for accepted product transitions. `get` probes
-the buffer, active frontier(s), then historical levels newest-to-oldest. Private
-history has no other semantic consumer; identity-bearing path state lives on
-the canonical `NodeState` and related signpost structures. See
-`reports/SOURCE_AUDIT.md`.
+Every formal topology run used five independent paired JVM forks, deterministic within-pair ordering, complete warmup, medians within each fork, paired log ratios, and two-sided 95% Student-t intervals. PROFILE was used only to verify the physical operator, DB hits/results, and tracked memory. Headline latency is from normal unprofiled execution. All included cases returned identical result lengths and executed `StatefulShortestPath(Into, Trail)`.
 
-## 5. Mathematical expectation
+## Multi-topology timing
 
-For a new product state at history depth `H`, lookup is expected
-`Theta(1+H)`. A chain with one accepted new state per depth accumulates
-`Theta(D^2)` lookup bookkeeping. A primitive-key direct repository makes each
-lookup expected `Theta(1)` but adds structural memory and insertion cost. These
-claims apply to lookup, not total PPBFS execution. See
-`reports/MATHEMATICAL_MODEL.md`.
+Speedup is B0 time divided by C1 time.
 
-## 6. Benchmark methodology
+| Dataset / scope | Cases | Geomean speedup | 95% CI |
+| --- | ---: | ---: | ---: |
+| roadNet-PA, depth 250/500/772 | 3 | 4.373x | [2.126x, 8.993x] |
+| roadNet-CA, all depths 10–800 | 14 | 2.340x | [2.268x, 2.414x] |
+| roadNet-CA, depth 250–800 | 6 | 5.289x | [4.808x, 5.818x] |
+| roadNet-CA, depth 10–100 | 8 | 1.269x | [1.177x, 1.369x] |
+| web-Stanford, depth 2–140 | 13 | 1.079x | [1.060x, 1.098x] |
+| as-Skitter, depth 2–30 | 13 | 1.014x | [0.989x, 1.039x] |
 
-- Instrumentation was isolated in commit
-  `011f242418427361f2659535fd5ceca27ec4dbdf`.
-- Real timing used independently restarted paired JVM forks, seeded within-pair
-  ordering, complete warmups, within-fork medians where repetitions existed,
-  paired log ratios, two-sided 95% Student-t intervals, and append-only raw data.
-- Every included real query returned equal path lengths and executed a nested
-  `StatefulShortestPath(Into, Trail)` operator.
-- The real graph was SNAP roadNet-PA, SHA-256
-  `450B8733635D887466A2B96B26411F6E62CAF7006F8A264F59CF9B5D75CDF549`.
-- Fixed-limit tests restarted Neo4j with isolated `NEO4J_CONF`, verified
-  `db.memory.transaction.max` using `SHOW SETTINGS`, and saved complete HTTP
-  responses before validating outcomes.
-- The shared runner and analyzers are under `../common/scripts/`; bulky raw
-  evidence is under `D:/dev/neo4j-research/artifacts/ppbfs/`.
+`MEASURED`: roadNet-CA independently replicates the depth-dependent effect: 1.118x at d10, 1.738x at d100, 3.407x at d250, 5.213x at d500, and 8.328x at d800. web-Stanford grows from neutral at d2–10 to 1.269x at d140. as-Skitter is neutral overall, answering the low-diameter regression question favorably.
 
-## 7. Controlled complexity results
+`NOT RUN`: LDBC SNB SF10. No prepared SF10 store or naturally qualifying PPBFS manifest existed, and forcing a synthetic StatefulShortestPath shape would not provide the intended realistic-regression evidence.
 
-`MEASURED`: controlled chain depths 4 through 4096 reproduced the predicted
-growth. At depth 4096, B0 performed 8,382,465 historical probes for 4,097
-accepted lookup attempts. This passes the materiality scaling condition.
-Diamonds and layered-DAG fixtures remain available as correctness/topology
-controls, but no publication claim is based on synthetic timing alone.
+## Tracked-memory evidence
 
-## 8. Real graph results
+PROFILE `Memory` is operator high-water accounting, not process RSS or total allocation. C1 deltas were:
 
-For C1, speedup is B0 elapsed time divided by C1 elapsed time.
+- roadNet-PA: -2.91% to +1.46%; deep cases -0.84% to +0.34%;
+- roadNet-CA: +0.18% to +2.18% through d500, then -0.10% at d800;
+- web-Stanford: +5.80% to +9.94%;
+- as-Skitter: mostly -5.08% to +0.38% through d12, then +8.80% to +9.70% at d20/d30.
 
-| roadNet-PA distance | B0 median ms | C1 median ms | Geomean speedup | 95% CI |
-| ---: | ---: | ---: | ---: | ---: |
-| 250 | 1,156.741 | 434.743 | 2.233x | [0.840x, 5.933x] |
-| 500 | 9,511.730 | 2,067.130 | 4.481x | [1.685x, 11.918x] |
-| 772 | 33,316.613 | 3,623.778 | 8.355x | [6.371x, 10.957x] |
-| deep aggregate | — | — | 4.373x | [2.126x, 8.993x] |
+Representative minimum-observed fixed limits:
 
-`MEASURED`: this establishes a significant deep-path benefit on one real graph,
-not across three topology families. C2 retained 89.9% of C1 performance overall
-and 85.6% on deep pairs in its three-fork screening run. C3 timing was `NOT RUN`
-because its first memory gate failed.
+| Dataset | Distance | B0 | C1 | Difference | Relative |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| roadNet-PA | 100 | 14 MiB | 14 MiB | 0 | 0% |
+| roadNet-PA | 250 | 92 MiB | 93 MiB | +1 MiB | +1.09% |
+| roadNet-PA | 500 | 532 MiB | 532 MiB | 0 | 0% |
+| roadNet-PA | 772 | 996 MiB | 996 MiB | 0 | 0% |
+| roadNet-CA | 100 | 12 MiB | 12 MiB | 0 | 0% |
+| roadNet-CA | 250 | 102 MiB | 104 MiB | +2 MiB | +1.96% |
+| roadNet-CA | 500 | 1288 MiB | 1296 MiB | +8 MiB | +0.62% |
+| roadNet-CA | 800 | 1732 MiB | 1732 MiB | 0 | 0% |
 
-## 9. LDBC and regression results
+`MEASURED`: the boundary shift is neither exactly one MiB nor monotonic with depth. Neo4j rejects the next tracked reservation in discrete chunks (the PA d250 error reports 90 MiB live and rejection of the next 2 MiB). A small live structure delta can therefore cross a configured boundary by one or more MiB; the table must not be read as exact resident-memory overhead.
 
-Higher-repetition shallow roadNet-PA timing for C1 produced a 1.182x aggregate
-point estimate with 95% CI `[0.870x,1.606x]`; no distance had a point-estimate
-regression above 2%, but fork results ranged from 0.849x to 1.520x. The broad
-common-case gate is therefore `NOT PROVEN`. LDBC SNB and additional real graph
-families were `NOT RUN — candidates rejected at the memory gate before broader
-qualification`.
+## Allocation and GC
 
-## 10. Internal causal metrics
+The canonical JFR v6 run attached to the database JVM and exercised the same d10/d250/d772 manifest once for warmup and three measured repetitions.
 
-`MEASURED`: B0 JFR attributed 468 of 919 execution samples (50.9%) to
-`FoundNodes.get`; C1 reduced this to 2 of 817 (0.24%). Together with the
-controlled probe curve and direct-lookup hooks, this supports causal attribution
-of C1's deep improvement to removal of historical probing.
+| Metric | B0 | C1 | Delta / interpretation |
+| --- | ---: | ---: | --- |
+| thread-allocation delta | 7.166 GB | 7.562 GB | C1 +5.5% |
+| weighted sampled allocation | 7.266 GB | 7.776 GB | C1 +7.0% |
+| recording coverage | 63.62 s | 10.14 s | C1 finishes much sooner |
+| GC collections | 25 | 23 | no increase |
+| total GC pause | 0.934 s | 0.966 s | +0.032 s; similar absolute pause |
 
-## 11. Memory analysis
+`MEASURED`: C1 allocates somewhat more total data but does not create a GC-count or absolute-pause explosion in this run. Its allocation rate is higher because roughly similar work is completed much faster; rate alone is not an overhead measure. Dominant sites in both variants are PPBFS `Lengths`, `HeapTrackingArrayList`, `NodeState`, and `TwoWaySignpost`; C1 additionally raises recorded long/object backing-array allocation in the canonical map.
 
-Plan-reported C1 operator memory ranged from -2.91% to +1.46% versus B0 across
-the seven roadNet-PA pairs. That aggregate view concealed an allocator boundary:
+JFR v1–v5 are retained but excluded from allocation conclusions because they attached to the Java launcher rather than the database JVM. This provenance error was detected from impossible near-zero allocation counts and corrected before v6.
 
-| Variant | 92 MiB | 93 MiB | 94 MiB | Minimum observed pass |
-| --- | --- | --- | --- | ---: |
-| B0 | PASS | PASS | PASS | 92 MiB |
-| C1 dense node-major | FAIL | PASS | not needed | 93 MiB |
-| C2 state-major maps | FAIL | FAIL | PASS | 94 MiB |
-| C3 adaptive node-major, capacity 2 | FAIL | not run | not run | greater than 92 MiB |
+## Correctness and maintainability
 
-C3's canonical run records 91 MiB in use and rejection of the next 2 MiB
-allocation. Capacity 1 uses the same inline bucket size and promotes earlier,
-so it cannot repair this low-occupancy failure. Object-layout/JOL and crossover
-sweeps were `NOT RUN — no candidate survived the decisive limit gate`.
+C1 passed focused canonical identity, historical lookup, bidirectional sharing, duplicate rejection, frontier retirement, interruption cleanup, generated differential tests, and the existing PPBFS suite. Its representation is the simplest candidate: one query-local node-major canonical repository using Neo4j tracked collections. C2 and C3 remain useful negative comparators but are not production candidates.
 
-## 12. Allocation and GC analysis
+## Pareto conclusion
 
-Detailed allocation/GC comparisons were `NOT RUN — stopped by the fixed-limit
-gate`. All candidate structural allocation uses Neo4j's scoped heap tracker;
-tests verify exact zero after normal early close and interruption cleanup. No
-candidate uses `allocateHeapNoThrow` or evades query accounting.
+`INFERRED`: B0 and C1 are both Pareto-relevant. B0 minimizes tracked structural memory and preserves every tested fixed limit; C1 has the strongest latency and removes the causal hotspot at a small but real memory/allocation cost. C2 is dominated by C1 in current evidence; C3 did not recover the strict boundary.
 
-## 13. Candidate matrix
+`POLICY / MAINTAINER DECISION`: whether the observed headroom cost is acceptable for the deep StatefulShortestPath gains, and whether Neo4j has a preferred internal primitive repository/ownership model. The evidence warrants asking; it does not settle that policy question.
 
-| Candidate | Canonical representation | Correctness | Memory result | Decision |
-| --- | --- | --- | --- | --- |
-| B0 | level-partitioned history | PASS | passes 92 MiB | retain |
-| C1 | node -> dense state array | PASS | fails 92 MiB | reject |
-| C2 | state -> primitive node map | PASS | first passes 94 MiB | reject |
-| C3 | node -> inline sparse/dense bucket | PASS | fails 92 MiB | reject |
+## Raw evidence hashes
 
-The optional third C3 tier was not implemented because no measured middle
-regime could override the failed low-occupancy boundary.
+```text
+roadNet-CA analysis   439CF94617436DCAB5E5018C0B1272B2E40B3604D62233076C760F58396B51F9
+web-Stanford analysis A78C67AED79CA08895712841AD4391653A5992D05C368E9EA37FA27E69144718
+as-Skitter analysis   244E757C6B537BD9A4134C382F06EA7D17AD10992C8525A6E93C6DAF534727B4
+B0 JFR v6             239E00711633C1B4D4D590F72F95209DC78AE2A490C93C835A5D91D999710B70
+C1 JFR v6             EEA86C206CD285E49E3742388809696CA2BCC313E27B8672D07BAA1C7DE8952A
+```
 
-## 14. Pareto selection
-
-C1 owns the strongest measured deep latency but is dominated by B0 on the
-mandatory memory-boundary dimension. C2 worsens that boundary and loses
-material screening performance versus C1. C3 does not recover B0's boundary.
-Under the ordered gates, B0 is the only admissible design and therefore the
-production choice.
-
-## 15. Regressions and negative results
-
-- C1: one-MiB worse observed transaction-memory boundary; shallow uncertainty.
-- C2: two-MiB worse boundary than B0 and 10.1% overall / 14.4% deep screening
-  loss versus C1. Classified as map structural overhead/cache locality plus
-  measurement noise pending deeper profiling.
-- C3: failed the same 92 MiB boundary as C2. Classified as bucket/global-map
-  structural overhead; deeper attribution was intentionally stopped.
-- Invalid or interrupted runs are retained and explicitly excluded. The first
-  C2 distribution accidentally contained C1 bytecode; all four affected runs
-  are excluded. C3 `v1` used an abbreviated SHA; identical full-SHA `v2` is the
-  canonical record.
-
-## 16. Acceptance-gate evaluation
-
-| Gate | Result |
-| --- | --- |
-| preflight / public overlap | PASS; none found on 2026-09-04 |
-| source compatibility | PASS |
-| materiality | PASS |
-| semantic correctness | PASS for C1/C2/C3 focused evidence |
-| physical operator | PASS for included real queries |
-| causal attribution | PASS for C1 |
-| real benefit | PASS on one graph; multi-topology alternative not proven |
-| common-case regression | NOT PROVEN |
-| tracked-memory percentage | observed PASS for C1 profiles |
-| identical-limit memory | FAIL for C1, C2, and C3 |
-| allocation/GC | NOT RUN after decisive failure |
-| upstream gate | FAIL; no production candidate |
-
-## 17. Limitations
-
-The evidence is Windows/Java-21 specific and uses one real topology. It does not
-establish LDBC behavior, multi-topology generality, JOL layout, p95/p99 latency
-from sufficiently large independent samples, or allocation/GC effects for C3.
-Those omissions do not weaken the NO-GO: the near-limit contract is mandatory,
-and all direct candidates already failed it. The result does not prove that all
-possible future algorithms or data structures are impossible.
-
-The requested single all-phases reproduction command was not expanded after
-the decisive gate failure. The retained variant-neutral preparation, server,
-memory-matrix, metadata, and statistical scripts remain separately runnable;
-creating more orchestration for a rejected patch would not change the decision.
-
-## 18. Final recommendation
-
-Keep B0 unchanged. Preserve the lab commits and raw evidence for provenance, do
-not transfer C1/C2/C3 production code to the clean contribution branch, and do
-not contact upstream about a patch under the current acceptance contract.
-
-NO-GO — MEMORY REGRESSION IS UNACCEPTABLE
+See `MULTI_TOPOLOGY_RESULTS.md`, `MEMORY_TRADEOFF_ANALYSIS.md`, `ALLOCATION_GC_ANALYSIS.md`, and `FINAL_PARETO_ANALYSIS.md` for separated evidence and judgment layers.
