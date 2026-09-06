@@ -71,7 +71,7 @@ import org.neo4j.util.Preconditions;
  * </pre>
  */
 public final class FoundNodes implements AutoCloseable {
-    static final int HISTORY_SIZE_BEFORE_INDEXING = 8;
+    static final int HISTORY_SIZE_BEFORE_INDEXING = 4;
 
     private final HeapTrackingArrayList<HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>>
             history; // frozen after indexing: levelDepth x nodeId x stateId -> NodeState
