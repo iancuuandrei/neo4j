@@ -2,7 +2,7 @@
 
 ## Status and objective
 
-Status: accepted for experiment, pre-implementation, 2026-09-05. C4-DCRI asks whether PPBFS can remain structurally identical to B0 for shallow searches, then bound history-dependent lookup by freezing an early prefix and transferring later retired buckets into one direct index. It is a research hypothesis, not an upstream design decision.
+Status: design frozen before implementation on 2026-09-05; mathematically and empirically revalidated on 2026-09-06. C4-DCRI asks whether PPBFS can remain structurally identical to B0 for shallow searches, then bound history-dependent lookup by freezing an early prefix and transferring later retired buckets into one direct index. It is a research result, not an upstream design decision.
 
 Goals are: preserve exact PPBFS semantics; avoid historical backfill; avoid a second canonical dense bucket for newly reached nodes; make lookup independent of final depth after activation; approach B0 shallow resource behavior; retain at least roughly 85–90% of C1's logarithmic deep improvement if evidence permits. Non-goals are C1 modification, a custom pair table, singleton/dense promotion, sharding without a measured rehash problem, and an upstream PR.
 
@@ -83,3 +83,15 @@ Activation has no runtime rollback: deactivation would complicate ownership and 
 ## Validation contract
 
 Before formal timing: focused ownership/identity/lifecycle tests, generated differential PPBFS tests, bidirectional and path-mode coverage, interruption and cleanup, Spotless, and the complete `community/cypher/runtime-util` suite with zero failures/errors. Formal evidence then reruns the full frozen benchmark matrix, fixed-memory boundaries, activation diagnostics, and representative JFR. Large/rebuildable artifacts and all append-only raw runs remain under `D:/dev/neo4j-research`.
+
+## Measured validation
+
+At depth 4,096 the synchronized controlled retest recorded:
+
+| Variant | lookups | history probes | probes / lookup |
+| --- | ---: | ---: | ---: |
+| B0 | 4,097 | 8,382,465 | 2,046.001 |
+| C1 | 4,097 | 0 | 0 |
+| C4 | 4,097 | 32,724 | 7.987 |
+
+`DERIVED`: B0 matches the triangular-growth prediction, while C4 is bounded by the frozen prefix of eight. The measured post-activation recurrence is therefore linear in lookup count with respect to final depth. Raw synchronized outputs are under `D:/dev/neo4j-research/artifacts/ppbfs/runs/c4v2/controlled-v2/`.

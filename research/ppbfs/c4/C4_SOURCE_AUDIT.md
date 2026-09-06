@@ -2,7 +2,7 @@
 
 ## Status and authority
 
-Status: `SOURCE-CONFIRMED`, pre-implementation audit, 2026-09-05. Repository: `neo4j/neo4j`. C4 branch: `research/ppbfs-c4-deferred-index`. Exact base: B0 instrumentation commit `1529bdd7fdb8fbbee28cbee7cf2f44c3379e2381`, itself derived from upstream `2026.07@f213380f812b820a1b312e2ea52cb3d8f1931ccc`.
+Status: `SOURCE-CONFIRMED`, pre-implementation audit retained and post-implementation re-audit completed 2026-09-06. Repository: `neo4j/neo4j`. C4 branch: `research/ppbfs-c4-deferred-index`. Exact base: B0 instrumentation commit `1529bdd7fdb8fbbee28cbee7cf2f44c3379e2381`, itself derived from upstream `2026.07@f213380f812b820a1b312e2ea52cb3d8f1931ccc`. Timed C4 implementation: `3a8d1f59a35770c5c1cfb380aa0efb2bff7684e2`.
 
 Frozen references:
 
@@ -48,10 +48,10 @@ The invariant check `existing == null || existing == nodeState` confirms that re
 
 `HeapTrackingLongObjectHashMap` accounts its object and key/value backing arrays, releases old backing arrays when growing, and releases current structural memory on `close`. Inner `HeapTrackingArrayList` buckets account their own arrays. Reusing the first retiring outer map is structurally possible only if the map is detached from the directional frontier before a new frontier is installed. Subsequent maps can be merged via `keyValuesView`; transferred inner buckets must not be closed, while merged buckets must be closed after slot reconciliation. The retiring outer map is then closed.
 
-## Open implementation questions
+## Post-implementation resolution
 
-- The activation threshold must be calibrated before selection; it cannot depend on wall-clock time.
-- First-map reuse is preferred but must be proven for both directions and empty-frontier transitions.
-- Existing hooks do not expose all C4 diagnostics; research-only aggregate hook methods are needed without per-lookup logging.
-- The underlying map exposes no stable public resize callback. Rehash analysis may require a research-only tracked-capacity hook or JFR backing-array attribution rather than reflection.
-
+- Structural calibration froze `H >= 8` before formal timing; no wall-clock trigger exists.
+- The first non-empty post-threshold retired outer map is reused directly. Focused tests cover unidirectional, bidirectional, empty retirement, repeated-node merge, identity, close, and interruption paths.
+- Aggregate research hooks emit one JSON object per completed query; formal timing leaves them disabled.
+- The map still exposes no stable public resize callback. Rehash conclusions are therefore bounded to JFR backing-array attribution, transfer counts, and maximum observed index size rather than reflection or an invented API.
+- A fresh upstream fetch on 2026-09-06 leaves `upstream/2026.07` at `f213380f812b820a1b312e2ea52cb3d8f1931ccc`; the history scan remains at the same symbol and no overlapping upstream PR was found. Issue `neo4j/neo4j#13966` remains the sole known public overlap.
