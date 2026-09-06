@@ -72,6 +72,8 @@ C1 has a small but real memory/allocation cost. Representative road fixed-limit 
 
 ### Draft C4 evidence update — do not post automatically
 
+Posted once after the experiment completed as issue comment `#issuecomment-5555797968`; retain this text as the local provenance copy and do not repost it.
+
 We subsequently tested a deferred-coalescing design that remains baseline-shaped for the first eight history levels, then transfers retired frontier buckets into a direct index without historical backfill or a second canonical bucket.
 
 - deep road speed remained C1-class: 4.370x vs B0 on roadNet-PA d250+ and 4.098x on roadNet-CA d250+
