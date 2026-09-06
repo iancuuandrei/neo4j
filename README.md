@@ -1,4 +1,4 @@
-# Neo4j Contributions — Andrei Iancu
+# Neo4j Contributions
 
 This is my personal fork of [Neo4j](https://github.com/neo4j/neo4j), used for
 upstream-oriented database-engine work and reproducible research into graph
