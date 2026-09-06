@@ -33,3 +33,13 @@ Not `STRONG GO`: LDBC was not useful/prepared, contrasting-topology tracked memo
 Not `MIXED`: the depth-dependent benefit independently replicates, one heterogeneous common workload establishes +/-5% equivalence, correctness holds, and neither memory nor GC shows a broad blow-up. The unresolved LiveJournal control is disclosed rather than treated as favorable evidence.
 
 `GO — APPROACH NEO4J MAINTAINERS WITH MEASURED TRADE-OFF`
+
+## C4-DCRI addendum (2026-09-06)
+
+C4 adds a third Pareto-relevant point. It retains at least 94.4% raw / 96.0% logarithmic C1 deep speed across the two road aggregates, eliminates measured canonical-bucket duplication, reduces allocation relative to C1, and significantly improves the valid LiveJournal control versus C1. It does not uniformly dominate B0 or C1: two d250 memory boundaries move by +2 MiB, deep-road allocation remains above B0, and ownership/merge lifecycle is more complex than C1.
+
+The C4-specific classification is:
+
+`C4 PARTIAL — BETTER RESOURCE PROFILE, BUT TRADE-OFF REQUIRES MAINTAINER CHOICE`
+
+This addendum does not retract the earlier C1 evidence or its maintainer-discussion recommendation. It changes the question from “B0 or C1?” to “is C1's simplicity or C4's improved resource/common-case balance preferable?”

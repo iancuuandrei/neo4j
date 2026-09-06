@@ -69,3 +69,15 @@ C1 has a small but real memory/allocation cost. Representative road fixed-limit 
 
 - Full research/evidence archive: https://github.com/iancuuandrei/neo4j/pull/1
 - Minimal clean candidate: https://github.com/iancuuandrei/neo4j/pull/2
+
+### Draft C4 evidence update — do not post automatically
+
+We subsequently tested a deferred-coalescing design that remains baseline-shaped for the first eight history levels, then transfers retired frontier buckets into a direct index without historical backfill or a second canonical bucket.
+
+- deep road speed remained C1-class: 4.370x vs B0 on roadNet-PA d250+ and 4.098x on roadNet-CA d250+
+- valid 10-fork LiveJournal `SHORTEST 2`: C4 was 1.189x `[1.004,1.408]` faster than C1; B0/C4 remained inconclusive
+- C4 allocated less than C1 in every representative JFR recording and was near B0 on external controls
+- memory remained workload-dependent: +2 MiB at both d250 replications, equality at most PA anchors, and a better observed boundary at roadNet-CA d800
+- 531 runtime-util tests passed with zero failures/errors and eight existing skips
+
+This does not establish a uniquely correct design. Would maintainers prefer the simpler always-on C1 repository, or is C4's lower shallow/allocation cost worth the extra retirement/merge lifecycle? Is there an existing tracked Neo4j collection or ownership pattern you would prefer before either patch is proposed?

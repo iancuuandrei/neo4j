@@ -121,3 +121,13 @@ C1 JFR v6             EEA86C206CD285E49E3742388809696CA2BCC313E27B8672D07BAA1C7D
 ```
 
 See `MULTI_TOPOLOGY_RESULTS.md`, `MEMORY_TRADEOFF_ANALYSIS.md`, `ALLOCATION_GC_ANALYSIS.md`, and `FINAL_PARETO_ANALYSIS.md` for separated evidence and judgment layers.
+
+## 2026-09-06 C4-DCRI continuation
+
+The C1 record above remains unchanged. A separate deferred-coalescing experiment at research commit `3a8d1f59a35770c5c1cfb380aa0efb2bff7684e2`, followed by diagnostics-overhead correction `0f8678e159b0837b448093be8607fcc6ebeaddf1`, freezes eight baseline history levels and then ownership-transfers retired buckets into one direct index without backfill or canonical-bucket duplication.
+
+`MEASURED`: fresh B0/C1/C4 timing reproduced deep speed on both roads: C4/B0 speedup was 4.370x `[3.838,4.976]` on roadNet-PA d250+ and 4.098x `[3.231,5.197]` on roadNet-CA d250+. C4 was statistically consistent with C1 on both. A valid 10-fork LiveJournal `SHORTEST 2` run measured C4 1.189x `[1.004,1.408]` faster than C1. Controlled d4096 probes fell from B0's 8,382,465 to C4's 32,724, bounded by the frozen prefix.
+
+`MEASURED`: C4 allocation was below C1 in every qualified recording and B0-like on the external controls, but remained +3.8% to +5.7% over B0 on deep roads. Fixed-memory results were mixed: most PA anchors matched B0, both road d250 cases required +2 MiB, and CA d800 passed 1,730 MiB where B0 failed.
+
+`DERIVED`: C4 improves C1's resource/common-case profile without uniformly restoring B0 memory behavior. It is therefore a stronger trade-off candidate, not a demonstrated strict dominator. Full C4 reports and append-only raw artifacts are retained on `research/ppbfs-c4-deferred-index` and D: respectively.

@@ -51,3 +51,9 @@ The upstream branch contains only production `FoundNodes` plumbing and focused u
 ## Rollback
 
 Revert the query-local canonical repository and restore history scanning. No data migration, store-format, configuration, or public API change is involved.
+
+## C4 status addendum
+
+This remains the hypothetical C1 pull-request draft; PR #2 is intentionally frozen and must not be rewritten. C4-DCRI was evaluated on a separate research branch and is not ready to replace this draft automatically.
+
+C4 retains C1-class deep speed and improves allocation/shallow behavior, but has mixed memory boundaries and additional ownership complexity. No C4 upstream pull request should be opened until maintainers indicate which trade-off they prefer. If C4 is selected, create a new clean `contrib/ppbfs-deferred-state-index` branch directly from the agreed upstream SHA containing only production C4 code and focused tests—never the research hooks, reports, manifests, or candidate history.
