@@ -254,3 +254,25 @@ analysis, near-limit tests, or multi-topology memory evidence.
   `https://github.com/neo4j/neo4j/issues/13966` at `2026-09-05T18:22:39Z`.
 - No upstream PR, reviewer request, CLA action, candidate change, or additional
   benchmark was performed.
+
+## 2026-09-06 — Clean C4 maintainer package
+
+- Extracted the instrumentation-free C4 algorithm and focused ownership tests
+  onto `contrib/ppbfs-deferred-state-index` at
+  `7411ac3853c3408466725e54bca7379c5f8f8f0d` from the frozen upstream base.
+- Focused validation passed 114 tests (five existing skips); the full
+  `runtime-util` suite passed 529 tests (five existing skips), with no
+  failures/errors. The 129-module Community build passed in 19:27.
+- Ran the predeclared H=4/8/16 sensitivity subset with three independently
+  restarted forks per threshold. All 45 timed executions returned identical
+  results. Deep-road point differences were at most 5.7%; shallow intervals
+  remained inconclusive and are not promoted as equivalence evidence.
+- Qualified the exact clean H=8 JAR against B0 on two deep roads, LiveJournal,
+  Hetionet H3, and as-Skitter. The two-fork subset reproduced strong deep-road
+  speed and matching results; shallow comparisons remained statistically weak.
+- Reran the controlled depth-4096 instrumentation: B0 recorded 8,382,465
+  historical probes and C4 32,724 frozen-prefix probes for the same 4,097
+  lookups and 8,193-entity result.
+- Raw append-only evidence is under
+  `D:/dev/neo4j-research/artifacts/ppbfs/runs/threshold-sensitivity-v1/` and
+  `.../runs/clean-c4-qualification-v1/`.
