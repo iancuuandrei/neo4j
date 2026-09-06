@@ -20,7 +20,9 @@
 package org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.hooks
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path, StandardOpenOption}
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardOpenOption
 
 /** Research-only aggregate C4 observability. Never include this class in a contribution patch. */
 final class C4MetricsPPBFSHooks(output: String) extends PPBFSHooks {

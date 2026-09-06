@@ -21,11 +21,13 @@ package org.neo4j.internal.kernel.api.helpers.traversal.ppbfs
 
 import org.neo4j.cypher.internal.runtime.RuntimeUtilTestSuite
 import org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.Lengths.trailMode
-import org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.TraversalDirection.{BACKWARD, FORWARD}
+import org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.TraversalDirection.BACKWARD
+import org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.TraversalDirection.FORWARD
 import org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.hooks.PPBFSHooks
 import org.neo4j.internal.kernel.api.helpers.traversal.productgraph.PGStateBuilder
 import org.neo4j.kernel.api.StatementConstants.NO_SUCH_NODE
-import org.neo4j.memory.{EmptyMemoryTracker, LocalMemoryTracker}
+import org.neo4j.memory.EmptyMemoryTracker
+import org.neo4j.memory.LocalMemoryTracker
 
 class FoundNodesC4Test extends RuntimeUtilTestSuite {
 

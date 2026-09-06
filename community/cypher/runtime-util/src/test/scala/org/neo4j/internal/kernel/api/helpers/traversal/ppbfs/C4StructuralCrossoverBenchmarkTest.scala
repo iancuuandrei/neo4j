@@ -19,12 +19,14 @@
  */
 package org.neo4j.internal.kernel.api.helpers.traversal.ppbfs
 
-import org.neo4j.collection.trackable.{HeapTrackingArrayList, HeapTrackingLongObjectHashMap}
+import org.neo4j.collection.trackable.HeapTrackingArrayList
+import org.neo4j.collection.trackable.HeapTrackingLongObjectHashMap
 import org.neo4j.cypher.internal.runtime.RuntimeUtilTestSuite
 import org.neo4j.memory.EmptyMemoryTracker
 
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
+import java.nio.file.Files
+import java.nio.file.Path
 
 import scala.collection.mutable.ArrayBuffer
 
@@ -44,7 +46,11 @@ class C4StructuralCrossoverBenchmarkTest extends RuntimeUtilTestSuite {
     result
   }
 
-  private def level(size: Int, q: Int, keyOffset: Long): HeapTrackingLongObjectHashMap[HeapTrackingArrayList[AnyRef]] = {
+  private def level(
+    size: Int,
+    q: Int,
+    keyOffset: Long
+  ): HeapTrackingLongObjectHashMap[HeapTrackingArrayList[AnyRef]] = {
     val result = HeapTrackingLongObjectHashMap.createLongObjectHashMap[HeapTrackingArrayList[AnyRef]](mt, size)
     val marker = new Object
     var i = 0

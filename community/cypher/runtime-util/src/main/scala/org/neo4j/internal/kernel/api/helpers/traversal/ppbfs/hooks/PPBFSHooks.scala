@@ -108,6 +108,7 @@ abstract class PPBFSHooks {
   ): Unit = {}
   def foundNodesBufferAdd(newNodeBucket: Boolean, allocatedStateSlots: Int): Unit = {}
   def collectC4Metrics: Boolean = false
+
   def foundNodesC4Activation(
     activationDepth: Int,
     frozenHistorySize: Int,
@@ -115,6 +116,7 @@ abstract class PPBFSHooks {
     retiringBuckets: Int,
     outerMapTransferred: Boolean
   ): Unit = {}
+
   def foundNodesC4Retirement(
     transferredBuckets: Int,
     mergedBuckets: Int,
