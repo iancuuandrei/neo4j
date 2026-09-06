@@ -31,8 +31,13 @@ authoritative common-case evidence.
 - identical imported store, JDK, configuration, and manifest within a workload;
 - H=4: `25cddd01de077f23c8a597c955bc77c5853d3be6`;
 - H=8 clean candidate: `7411ac3853c3408466725e54bca7379c5f8f8f0d`;
-- H=16: `06fc35a16ae0e7a1fd66c128b29e156f665a51ed`.
+- H=16: `06fc35a16aed9814e508627809cba52f5eb757a5`.
+
+The original run protocols contain the mistyped declarative H=16 SHA
+`06fc35a16ae0e7a1fd66c128b29e156f665a51ed`. The immutable tested-JAR hash is
+`6877EAD961E934BA8F40E5C98BA6BFEC03FBD8EF7699DA5DBA7B0F0C73457743`; an
+append-only correction record beside the raw runs binds it to the verified
+commit above. No timing data was changed.
 
 Raw CSV, metadata, logs, protocols, and analyses are append-only under
 `$PPBFS_ARTIFACTS/runs/threshold-sensitivity-v1/`.
-
