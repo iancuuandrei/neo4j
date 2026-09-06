@@ -107,6 +107,7 @@ abstract class PPBFSHooks {
     historyDepth: Int
   ): Unit = {}
   def foundNodesBufferAdd(newNodeBucket: Boolean, allocatedStateSlots: Int): Unit = {}
+  def collectC4Metrics: Boolean = false
   def foundNodesC4Activation(
     activationDepth: Int,
     frozenHistorySize: Int,

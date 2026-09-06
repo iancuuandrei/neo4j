@@ -136,7 +136,9 @@ public final class FoundNodes implements AutoCloseable {
 
     /** Look up a NodeState. O(N) wrt history length */
     public NodeState get(long nodeId, int stateId) {
-        lookupCount += 1;
+        if (hooks.collectC4Metrics()) {
+            lookupCount += 1;
+        }
         var nodeState = getFromLevel(frontierBuffer, nodeId, stateId);
         if (nodeState != null) {
             hooks.foundNodesLookup(LookupLocation.BUFFER, 0, -1, history.size());

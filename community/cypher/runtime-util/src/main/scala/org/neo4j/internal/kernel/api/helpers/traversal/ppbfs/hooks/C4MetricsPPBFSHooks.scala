@@ -24,6 +24,8 @@ import java.nio.file.{Files, Path, StandardOpenOption}
 
 /** Research-only aggregate C4 observability. Never include this class in a contribution patch. */
 final class C4MetricsPPBFSHooks(output: String) extends PPBFSHooks {
+  override def collectC4Metrics: Boolean = true
+
   private var activated = false
   private var activationCount = 0
   private var activationDepth = -1
