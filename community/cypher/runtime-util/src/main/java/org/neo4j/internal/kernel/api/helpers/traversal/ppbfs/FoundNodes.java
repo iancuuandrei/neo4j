@@ -71,8 +71,13 @@ import org.neo4j.util.Preconditions;
  * </pre>
  */
 public final class FoundNodes implements AutoCloseable {
+    static final int HISTORY_SIZE_BEFORE_INDEXING = 8;
+
     private final HeapTrackingArrayList<HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>>
-            history; // levelDepth x nodeId x stateId -> NodeState
+            history; // frozen after indexing: levelDepth x nodeId x stateId -> NodeState
+
+    private HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
+            retiredIndex; // nodeId x stateId -> NodeState
 
     private HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
             forwardFrontier; // nodeId x stateId -> NodeState
@@ -90,6 +95,8 @@ public final class FoundNodes implements AutoCloseable {
     private int forwardDepth = 0;
 
     private int backwardDepth = 0;
+
+    private boolean indexingRetiredFrontiers;
 
     public FoundNodes(MemoryTracker memoryTracker, SearchMode mode, int nfaStateCount) {
         this.memoryTracker = memoryTracker.getScopedMemoryTracker();
@@ -110,6 +117,9 @@ public final class FoundNodes implements AutoCloseable {
             nodeStates = HeapTrackingArrayList.newEmptyArrayList(nfaStateCount, memoryTracker);
             frontierBuffer.put(nodeState.id(), nodeStates);
         }
+        var existing = nodeStates.get(nodeState.state().id());
+        Preconditions.checkState(
+                existing == null || existing == nodeState, "Attempted to replace canonical NodeState instance");
         nodeStates.set(nodeState.state().id(), nodeState);
     }
 
@@ -127,6 +137,13 @@ public final class FoundNodes implements AutoCloseable {
 
         if (mode == SearchMode.Bidirectional) {
             nodeState = getFromLevel(backwardFrontier, nodeId, stateId);
+            if (nodeState != null) {
+                return nodeState;
+            }
+        }
+
+        if (retiredIndex != null) {
+            nodeState = getFromLevel(retiredIndex, nodeId, stateId);
             if (nodeState != null) {
                 return nodeState;
             }
@@ -161,27 +178,88 @@ public final class FoundNodes implements AutoCloseable {
         bufferState = BufferState.OPEN;
     }
 
-    /** Shifts the previous frontier into history, and the frontier buffer into the current frontier */
+    /** Retires the previous frontier and promotes the frontier buffer. */
     public void commitBuffer(TraversalDirection direction) {
         Preconditions.checkState(bufferState == BufferState.OPEN, "Buffer closed when it was not open");
 
         switch (direction) {
             case FORWARD -> {
-                if (forwardFrontier.notEmpty()) {
-                    history.add(forwardFrontier);
-                }
+                retire(forwardFrontier);
                 forwardDepth += 1;
                 forwardFrontier = frontierBuffer;
             }
             case BACKWARD -> {
-                if (backwardFrontier.notEmpty()) {
-                    history.add(backwardFrontier);
-                }
+                retire(backwardFrontier);
                 backwardDepth += 1;
                 backwardFrontier = frontierBuffer;
             }
         }
         bufferState = BufferState.CLOSED;
+    }
+
+    private void retire(HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> retiringFrontier) {
+        if (!indexingRetiredFrontiers
+                && history.size() >= HISTORY_SIZE_BEFORE_INDEXING
+                && retiringFrontier.notEmpty()) {
+            indexingRetiredFrontiers = true;
+            retiredIndex = retiringFrontier;
+            return;
+        }
+
+        if (!indexingRetiredFrontiers) {
+            if (retiringFrontier.notEmpty()) {
+                history.add(retiringFrontier);
+            }
+            return;
+        }
+
+        if (retiringFrontier.isEmpty()) {
+            retiringFrontier.close();
+            return;
+        }
+
+        for (var entry : retiringFrontier.keyValuesView()) {
+            var incoming = entry.getTwo();
+            var existing = retiredIndex.get(entry.getOne());
+            if (existing == null) {
+                // The retiring frontier no longer owns this bucket after its map is closed below.
+                retiredIndex.put(entry.getOne(), incoming);
+            } else {
+                mergeBuckets(existing, incoming);
+                incoming.close();
+            }
+        }
+        retiringFrontier.close();
+    }
+
+    private static void mergeBuckets(
+            HeapTrackingArrayList<NodeState> existing, HeapTrackingArrayList<NodeState> incoming) {
+        Preconditions.checkState(existing.size() == incoming.size(), "Cannot merge incompatible state buckets");
+        for (int stateId = 0; stateId < incoming.size(); stateId++) {
+            var incomingState = incoming.get(stateId);
+            if (incomingState == null) {
+                continue;
+            }
+            var existingState = existing.get(stateId);
+            Preconditions.checkState(
+                    existingState == null || existingState == incomingState,
+                    "Attempted to replace canonical NodeState instance");
+            if (existingState == null) {
+                existing.set(stateId, incomingState);
+            }
+        }
+    }
+
+    boolean indexingRetiredFrontiers() {
+        return indexingRetiredFrontiers;
+    }
+
+    int retainedHistorySize() {
+        return history.size();
+    }
+
+    HeapTrackingArrayList<NodeState> retiredBucket(long nodeId) {
+        return retiredIndex == null ? null : retiredIndex.get(nodeId);
     }
 
     public HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> frontier(TraversalDirection direction) {
