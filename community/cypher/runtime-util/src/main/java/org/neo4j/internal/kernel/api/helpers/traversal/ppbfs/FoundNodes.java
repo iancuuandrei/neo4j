@@ -2,25 +2,24 @@
  * Copyright (c) "Neo4j"
  * Neo4j Sweden AB [https://neo4j.com]
  *
- * This file is part of Neo4j.
- *
  * Neo4j is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
+ * Neo4j is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * along with Neo4j.  If not, see <https://www.gnu.org/licenses/>.
  */
 package org.neo4j.internal.kernel.api.helpers.traversal.ppbfs;
 
 import org.neo4j.collection.trackable.HeapTrackingArrayList;
 import org.neo4j.collection.trackable.HeapTrackingLongObjectHashMap;
+import org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.P2StateBucketTelemetry.LookupRole;
 import org.neo4j.internal.kernel.api.helpers.traversal.ppbfs.hooks.PPBFSHooks;
 import org.neo4j.memory.MemoryTracker;
 import org.neo4j.util.Preconditions;
@@ -88,6 +87,7 @@ public final class FoundNodes implements AutoCloseable {
     private final PPBFSHooks hooks;
     private final SearchMode mode;
     private final int nfaStateCount;
+    private final P2StateBucketTelemetry bucketTelemetry;
 
     private int forwardDepth = 0;
 
@@ -104,6 +104,7 @@ public final class FoundNodes implements AutoCloseable {
         }
         this.frontierBuffer = HeapTrackingLongObjectHashMap.createLongObjectHashMap(this.memoryTracker);
         this.nfaStateCount = nfaStateCount;
+        this.bucketTelemetry = P2StateBucketTelemetry.configured(nfaStateCount, mode);
     }
 
     public void addToBuffer(NodeState nodeState) {
@@ -113,7 +114,9 @@ public final class FoundNodes implements AutoCloseable {
         if (nodeStates == null) {
             nodeStates = HeapTrackingArrayList.newEmptyArrayList(nfaStateCount, memoryTracker);
             frontierBuffer.put(nodeState.id(), nodeStates);
+            bucketTelemetry.recordBucketCreated(nodeStates, totalDepth());
         }
+        bucketTelemetry.recordWrite(nodeStates, nodeState.state().id());
         nodeStates.set(nodeState.state().id(), nodeState);
         hooks.foundNodesBufferAdd(newNodeBucket, nfaStateCount);
         hooks.foundNodesState(nodeState.id(), nodeState.state().id(), nfaStateCount);
@@ -121,20 +124,20 @@ public final class FoundNodes implements AutoCloseable {
 
     /** Look up a NodeState. O(N) wrt history length */
     public NodeState get(long nodeId, int stateId) {
-        var nodeState = getFromLevel(frontierBuffer, nodeId, stateId);
+        var nodeState = getFromLevel(frontierBuffer, nodeId, stateId, LookupRole.BUFFER);
         if (nodeState != null) {
             hooks.foundNodesLookup(LookupLocation.BUFFER, 0, -1, history.size());
             return nodeState;
         }
 
-        nodeState = getFromLevel(forwardFrontier, nodeId, stateId);
+        nodeState = getFromLevel(forwardFrontier, nodeId, stateId, LookupRole.FORWARD_FRONTIER);
         if (nodeState != null) {
             hooks.foundNodesLookup(LookupLocation.FORWARD_FRONTIER, 0, -1, history.size());
             return nodeState;
         }
 
         if (mode == SearchMode.Bidirectional) {
-            nodeState = getFromLevel(backwardFrontier, nodeId, stateId);
+            nodeState = getFromLevel(backwardFrontier, nodeId, stateId, LookupRole.BACKWARD_FRONTIER);
             if (nodeState != null) {
                 hooks.foundNodesLookup(LookupLocation.BACKWARD_FRONTIER, 0, -1, history.size());
                 return nodeState;
@@ -142,7 +145,7 @@ public final class FoundNodes implements AutoCloseable {
         }
 
         for (int i = history.size() - 1; i >= 0; i--) {
-            nodeState = getFromLevel(history.get(i), nodeId, stateId);
+            nodeState = getFromLevel(history.get(i), nodeId, stateId, LookupRole.HISTORY);
             if (nodeState != null) {
                 var historyHitAge = history.size() - i - 1;
                 hooks.foundNodesLookup(LookupLocation.HISTORY, historyHitAge + 1, historyHitAge, history.size());
@@ -154,15 +157,32 @@ public final class FoundNodes implements AutoCloseable {
     }
 
     private NodeState getFromLevel(
-            HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> level, long nodeId, int stateId) {
+            HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> level,
+            long nodeId,
+            int stateId,
+            LookupRole role) {
         if (level.isEmpty()) {
+            bucketTelemetry.recordMapProbe(role, false);
             return null;
         }
         var nodeStates = level.get(nodeId);
+        bucketTelemetry.recordMapProbe(role, nodeStates != null);
         if (nodeStates == null) {
             return null;
         }
-        return nodeStates.get(stateId);
+        var nodeState = nodeStates.get(stateId);
+        bucketTelemetry.recordBucketLookup(nodeStates, role, nodeState != null);
+        return nodeState;
+    }
+
+    void recordFrontierIteration(HeapTrackingArrayList<NodeState> nodeStates) {
+        bucketTelemetry.recordFullIteration(nodeStates);
+    }
+
+    NodeState getFromExpansionBucket(HeapTrackingArrayList<NodeState> nodeStates, int stateId) {
+        var nodeState = nodeStates.get(stateId);
+        bucketTelemetry.recordBucketLookup(nodeStates, LookupRole.EXPANSION, nodeState != null);
+        return nodeState;
     }
 
     /** Allocates a new buffer based on the size of the previous one */
@@ -179,18 +199,24 @@ public final class FoundNodes implements AutoCloseable {
 
         switch (direction) {
             case FORWARD -> {
-                if (forwardFrontier.notEmpty()) {
-                    history.add(forwardFrontier);
+                var retiringFrontier = forwardFrontier;
+                if (retiringFrontier.notEmpty()) {
+                    history.add(retiringFrontier);
                 }
                 forwardDepth += 1;
+                bucketTelemetry.recordFrontierRetired(retiringFrontier, totalDepth(), forwardDepth);
                 forwardFrontier = frontierBuffer;
+                bucketTelemetry.recordBufferCommitted(forwardFrontier, direction, totalDepth(), forwardDepth);
             }
             case BACKWARD -> {
-                if (backwardFrontier.notEmpty()) {
-                    history.add(backwardFrontier);
+                var retiringFrontier = backwardFrontier;
+                if (retiringFrontier.notEmpty()) {
+                    history.add(retiringFrontier);
                 }
                 backwardDepth += 1;
+                bucketTelemetry.recordFrontierRetired(retiringFrontier, totalDepth(), backwardDepth);
                 backwardFrontier = frontierBuffer;
+                bucketTelemetry.recordBufferCommitted(backwardFrontier, direction, totalDepth(), backwardDepth);
             }
         }
         bufferState = BufferState.CLOSED;
@@ -227,12 +253,12 @@ public final class FoundNodes implements AutoCloseable {
         if (mode == SearchMode.Unidirectional) {
             return forwardFrontier.notEmpty();
         }
-
         return forwardFrontier.notEmpty() && backwardFrontier.notEmpty();
     }
 
     @Override
     public void close() {
+        bucketTelemetry.close();
         // we don't need to iterate & close the inner collections because we can just close the scoped memory tracker
         this.memoryTracker.close();
     }
