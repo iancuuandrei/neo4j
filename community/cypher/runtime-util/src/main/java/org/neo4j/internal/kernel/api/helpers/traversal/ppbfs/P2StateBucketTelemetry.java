@@ -2,18 +2,20 @@
  * Copyright (c) "Neo4j"
  * Neo4j Sweden AB [https://neo4j.com]
  *
+ * This file is part of Neo4j.
+ *
  * Neo4j is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Neo4j is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Neo4j.  If not, see <https://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package org.neo4j.internal.kernel.api.helpers.traversal.ppbfs;
 
@@ -85,7 +87,8 @@ final class P2StateBucketTelemetry implements AutoCloseable {
     private final long[] iterationsByOccupancy;
     private final long[][] bucketLookupsByRoleAndOccupancy;
     private final long[][] bucketLookupHitsByRoleAndOccupancy;
-    private final long[] mapProbesByRole;
+    private final long[] levelProbesByRole;
+    private final long[] mapGetsByRole;
     private final long[] mapBucketPresentByRole;
 
     private final Map<Integer, Long> bufferLifetimeHistogram;
@@ -147,7 +150,8 @@ final class P2StateBucketTelemetry implements AutoCloseable {
         this.iterationsByOccupancy = null;
         this.bucketLookupsByRoleAndOccupancy = null;
         this.bucketLookupHitsByRoleAndOccupancy = null;
-        this.mapProbesByRole = null;
+        this.levelProbesByRole = null;
+        this.mapGetsByRole = null;
         this.mapBucketPresentByRole = null;
         this.bufferLifetimeHistogram = null;
         this.globalLifetimeHistogram = null;
@@ -185,15 +189,12 @@ final class P2StateBucketTelemetry implements AutoCloseable {
         this.iterationsByOccupancy = new long[nfaStateCount + 1];
         this.bucketLookupsByRoleAndOccupancy = new long[LookupRole.values().length][nfaStateCount + 1];
         this.bucketLookupHitsByRoleAndOccupancy = new long[LookupRole.values().length][nfaStateCount + 1];
-        this.mapProbesByRole = new long[LookupRole.values().length];
+        this.levelProbesByRole = new long[LookupRole.values().length];
+        this.mapGetsByRole = new long[LookupRole.values().length];
         this.mapBucketPresentByRole = new long[LookupRole.values().length];
         this.bufferLifetimeHistogram = new java.util.TreeMap<>();
         this.globalLifetimeHistogram = new java.util.TreeMap<>();
         this.directionLifetimeHistogram = new java.util.TreeMap<>();
-    }
-
-    boolean enabled() {
-        return enabled;
     }
 
     void recordBucketCreated(HeapTrackingArrayList<NodeState> bucket, int totalDepth) {
@@ -235,11 +236,14 @@ final class P2StateBucketTelemetry implements AutoCloseable {
         pending.lastDistinctStateId = stateId;
     }
 
-    void recordMapProbe(LookupRole role, boolean bucketPresent) {
+    void recordLevelProbe(LookupRole role, boolean mapGetPerformed, boolean bucketPresent) {
         if (!enabled) {
             return;
         }
-        mapProbesByRole[role.ordinal()]++;
+        levelProbesByRole[role.ordinal()]++;
+        if (mapGetPerformed) {
+            mapGetsByRole[role.ordinal()]++;
+        }
         if (bucketPresent) {
             mapBucketPresentByRole[role.ordinal()]++;
         }
@@ -281,7 +285,7 @@ final class P2StateBucketTelemetry implements AutoCloseable {
             return;
         }
 
-        var profile = new LevelProfile(totalDepth, directionDepth, level.size());
+        var profile = new LevelProfile(direction, totalDepth, directionDepth, level.size());
         if (activeLevels.put(level, profile) != null) {
             unknownBucketOperations++;
         }
@@ -290,6 +294,7 @@ final class P2StateBucketTelemetry implements AutoCloseable {
 
     void recordFrontierRetired(
             HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> level,
+            TraversalDirection direction,
             int totalDepth,
             int directionDepth) {
         if (!enabled || level.isEmpty()) {
@@ -300,6 +305,9 @@ final class P2StateBucketTelemetry implements AutoCloseable {
         if (profile == null) {
             unknownBucketOperations++;
             return;
+        }
+        if (profile.direction != direction) {
+            unknownBucketOperations++;
         }
         merge(globalLifetimeHistogram, Math.max(0, totalDepth - profile.totalDepth), profile.bucketCount);
         merge(
@@ -507,7 +515,8 @@ final class P2StateBucketTelemetry implements AutoCloseable {
         appendHistogram(json, "nondecreasingInsertionsByOccupancy", nondecreasingInsertionsByOccupancy);
         appendHistogram(json, "adjacentInsertionsByOccupancy", adjacentInsertionsByOccupancy);
         appendHistogram(json, "iterationsByOccupancy", iterationsByOccupancy);
-        appendRoleCounts(json, "mapProbesByRole", mapProbesByRole);
+        appendRoleCounts(json, "levelProbesByRole", levelProbesByRole);
+        appendRoleCounts(json, "mapGetsByRole", mapGetsByRole);
         appendRoleCounts(json, "mapBucketPresentByRole", mapBucketPresentByRole);
         appendRoleHistograms(json, "bucketLookupsByRoleAndOccupancy", bucketLookupsByRoleAndOccupancy);
         appendRoleHistograms(
@@ -644,5 +653,6 @@ final class P2StateBucketTelemetry implements AutoCloseable {
         }
     }
 
-    private record LevelProfile(int totalDepth, int directionDepth, int bucketCount) {}
+    private record LevelProfile(
+            TraversalDirection direction, int totalDepth, int directionDepth, int bucketCount) {}
 }
