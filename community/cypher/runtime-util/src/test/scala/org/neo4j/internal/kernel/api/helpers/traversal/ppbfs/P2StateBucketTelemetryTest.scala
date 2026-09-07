@@ -48,21 +48,23 @@ class P2StateBucketTelemetryTest extends RuntimeUtilTestSuite {
       val firstLevel = level()
       val secondLevel = level()
 
+      telemetry.recordBucketCreated(first, 0)
       add(telemetry, first, 1, nodeState(11, 1))
       add(telemetry, first, 14, nodeState(11, 14))
       telemetry.recordWrite(first, 14)
-      telemetry.recordLevelProbe(BUFFER, mapGetPerformed = true, bucketPresent = true)
-      telemetry.recordBucketLookup(first, BUFFER, hit = true)
+      telemetry.recordLevelProbe(BUFFER, true, true)
+      telemetry.recordBucketLookup(first, BUFFER, true)
       firstLevel.put(11L, first)
       telemetry.recordBufferCommitted(firstLevel, FORWARD, 1, 1)
       telemetry.recordFullIteration(first)
-      telemetry.recordBucketLookup(first, EXPANSION, hit = true)
+      telemetry.recordBucketLookup(first, EXPANSION, true)
       telemetry.recordFrontierRetired(firstLevel, FORWARD, 2, 2)
 
+      telemetry.recordBucketCreated(second, 1)
       add(telemetry, second, 1, nodeState(11, 1))
       secondLevel.put(11L, second)
       telemetry.recordBufferCommitted(secondLevel, FORWARD, 2, 2)
-      telemetry.recordBucketLookup(second, HISTORY, hit = false)
+      telemetry.recordBucketLookup(second, HISTORY, false)
       telemetry.recordFrontierRetired(secondLevel, FORWARD, 3, 3)
       telemetry.close()
 
@@ -122,9 +124,6 @@ class P2StateBucketTelemetryTest extends RuntimeUtilTestSuite {
     stateId: Int,
     value: NodeState
   ): Unit = {
-    if (bucket.forall(_ == null)) {
-      telemetry.recordBucketCreated(bucket, 0)
-    }
     telemetry.recordWrite(bucket, stateId)
     bucket.set(stateId, value)
   }
