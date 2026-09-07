@@ -49,6 +49,11 @@ class P2StateBucketWorkloadTest extends RuntimeUtilTestSuite with PGPathPropagat
       sys.props.contains(P2StateBucketTelemetry.OUTPUT_PROPERTY),
       s"set -D${P2StateBucketTelemetry.OUTPUT_PROPERTY}=<absolute-jsonl-path> to request the experiment"
     )
+    assume(
+      sys.props.contains("ppbfs.p2.synthetic.manifest.output"),
+      "set -Dppbfs.p2.synthetic.manifest.output=<absolute-csv-path> to request the experiment"
+    )
+
     val manifestOutput = Path.of(sys.props("ppbfs.p2.synthetic.manifest.output"))
     val stateCounts = ints("ppbfs.p2.synthetic.state-counts", Seq(4, 8, 16, 32, 64, 128, 256))
     val requestedOccupancies = ints("ppbfs.p2.synthetic.occupancies", Seq(1, 2, 3, 4, 6, 8, 16, 32, 64, 96, 127))
@@ -57,7 +62,7 @@ class P2StateBucketWorkloadTest extends RuntimeUtilTestSuite with PGPathPropagat
       .map(_.split(',').iterator.map(value => IdShape.parse(value.trim)).toSeq)
       .getOrElse(Seq(IdShape.Low, IdShape.High, IdShape.Spread, IdShape.Randomized))
     val depth = sys.props.get("ppbfs.p2.synthetic.depth").fold(8)(_.toInt)
-    val width = sys.props.get("ppbfs.p2.synthetic.width").fold(256)(_.toInt)
+    val width = sys.props.get("ppbfs.p2.synthetic.width").fold(64)(_.toInt)
     val seed = sys.props.get("ppbfs.p2.synthetic.seed").fold(0x5eedL)(_.toLong)
 
     require(stateCounts.forall(_ >= 2), "state counts must be at least two")
@@ -81,7 +86,10 @@ class P2StateBucketWorkloadTest extends RuntimeUtilTestSuite with PGPathPropagat
         val activeStateIds = shape.ids(stateCount, targetK, seed)
         activeStateIds should have size targetK
         activeStateIds.distinct should have size targetK
-        all(activeStateIds) should (be > 0 and be < stateCount)
+        activeStateIds.foreach { stateId =>
+          stateId should be > 0
+          stateId should be < stateCount
+        }
 
         val expectedRole = classify(stateCount, targetK)
         val workloadId = s"synthetic-S$stateCount-k$targetK-${shape.name}-d$depth-w$width"
@@ -106,7 +114,7 @@ class P2StateBucketWorkloadTest extends RuntimeUtilTestSuite with PGPathPropagat
           depth,
           width,
           expectedRole,
-          quoted(activeStateIds.mkString(";")),
+          activeStateIds.mkString(";"),
           paths.size,
           paths.head.size,
           sha256(paths.head.mkString(","))
@@ -119,7 +127,7 @@ class P2StateBucketWorkloadTest extends RuntimeUtilTestSuite with PGPathPropagat
       }
     }
 
-    Option(manifestOutput.getParent).foreach(Files.createDirectories)
+    Option(manifestOutput.getParent).foreach(parent => Files.createDirectories(parent))
     Files.writeString(
       manifestOutput,
       rows.mkString("\n") + "\n",
@@ -182,8 +190,6 @@ class P2StateBucketWorkloadTest extends RuntimeUtilTestSuite with PGPathPropagat
       .digest(value.getBytes(StandardCharsets.UTF_8))
       .map(byte => f"${byte & 0xff}%02x")
       .mkString
-
-  private def quoted(value: String): String = s"\"${value.replace("\"", "\"\"")}\""
 
   private sealed trait IdShape {
     def name: String
