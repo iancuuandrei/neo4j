@@ -2,20 +2,18 @@
  * Copyright (c) "Neo4j"
  * Neo4j Sweden AB [https://neo4j.com]
  *
- * This file is part of Neo4j.
- *
  * Neo4j is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * This program is distributed in the hope that it will be useful,
+ * Neo4j is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ * along with Neo4j.  If not, see <https://www.gnu.org/licenses/>.
  */
 package org.neo4j.internal.kernel.api.helpers.traversal.ppbfs;
 
@@ -173,6 +171,7 @@ final class BFSExpander implements AutoCloseable {
             var dbNodeId = pair.getOne();
             var statesById = pair.getTwo();
 
+            foundNodes.recordFrontierIteration(statesById);
             statesList.clear();
             for (var nodeState : statesById) {
                 if (nodeState != null) {
@@ -190,7 +189,7 @@ final class BFSExpander implements AutoCloseable {
                 switch (direction) {
                     case FORWARD -> {
                         var nextNode = encounter(foundNode, re.targetState(), direction);
-                        var node = statesById.get(re.sourceState().id());
+                        var node = foundNodes.getFromExpansionBucket(statesById, re.sourceState().id());
 
                         var signpost = TwoWaySignpost.fromRelExpansion(
                                 mt,
@@ -209,7 +208,7 @@ final class BFSExpander implements AutoCloseable {
 
                     case BACKWARD -> {
                         var nextNode = encounter(foundNode, re.sourceState(), direction);
-                        var node = statesById.get(re.targetState().id());
+                        var node = foundNodes.getFromExpansionBucket(statesById, re.targetState().id());
 
                         var signpost = TwoWaySignpost.fromRelExpansion(
                                 mt, nextNode, pgCursor.relationshipReference(), node, re, tracker.lengths());
