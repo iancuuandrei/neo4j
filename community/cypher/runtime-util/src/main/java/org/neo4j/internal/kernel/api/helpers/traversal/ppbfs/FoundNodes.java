@@ -2,18 +2,20 @@
  * Copyright (c) "Neo4j"
  * Neo4j Sweden AB [https://neo4j.com]
  *
+ * This file is part of Neo4j.
+ *
  * Neo4j is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * Neo4j is distributed in the hope that it will be useful,
+ * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with Neo4j.  If not, see <https://www.gnu.org/licenses/>.
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package org.neo4j.internal.kernel.api.helpers.traversal.ppbfs;
 
@@ -162,11 +164,11 @@ public final class FoundNodes implements AutoCloseable {
             int stateId,
             LookupRole role) {
         if (level.isEmpty()) {
-            bucketTelemetry.recordMapProbe(role, false);
+            bucketTelemetry.recordLevelProbe(role, false, false);
             return null;
         }
         var nodeStates = level.get(nodeId);
-        bucketTelemetry.recordMapProbe(role, nodeStates != null);
+        bucketTelemetry.recordLevelProbe(role, true, nodeStates != null);
         if (nodeStates == null) {
             return null;
         }
@@ -204,7 +206,8 @@ public final class FoundNodes implements AutoCloseable {
                     history.add(retiringFrontier);
                 }
                 forwardDepth += 1;
-                bucketTelemetry.recordFrontierRetired(retiringFrontier, totalDepth(), forwardDepth);
+                bucketTelemetry.recordFrontierRetired(
+                        retiringFrontier, direction, totalDepth(), forwardDepth);
                 forwardFrontier = frontierBuffer;
                 bucketTelemetry.recordBufferCommitted(forwardFrontier, direction, totalDepth(), forwardDepth);
             }
@@ -214,7 +217,8 @@ public final class FoundNodes implements AutoCloseable {
                     history.add(retiringFrontier);
                 }
                 backwardDepth += 1;
-                bucketTelemetry.recordFrontierRetired(retiringFrontier, totalDepth(), backwardDepth);
+                bucketTelemetry.recordFrontierRetired(
+                        retiringFrontier, direction, totalDepth(), backwardDepth);
                 backwardFrontier = frontierBuffer;
                 bucketTelemetry.recordBufferCommitted(backwardFrontier, direction, totalDepth(), backwardDepth);
             }
@@ -258,9 +262,12 @@ public final class FoundNodes implements AutoCloseable {
 
     @Override
     public void close() {
-        bucketTelemetry.close();
-        // we don't need to iterate & close the inner collections because we can just close the scoped memory tracker
-        this.memoryTracker.close();
+        try {
+            bucketTelemetry.close();
+        } finally {
+            // we don't need to iterate & close the inner collections because we can just close the scoped memory tracker
+            this.memoryTracker.close();
+        }
     }
 
     public int forwardDepth() {
