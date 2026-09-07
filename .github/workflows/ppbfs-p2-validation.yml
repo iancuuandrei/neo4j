@@ -1,0 +1,114 @@
+name: PPBFS P2 validation
+
+on:
+  push:
+    branches:
+      - research/ppbfs-p2-baseline-instrumentation
+    paths:
+      - community/cypher/runtime-util/**
+      - research/ppbfs/p2/**
+      - .github/workflows/ppbfs-p2-validation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ppbfs-p2-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  research-artifacts:
+    name: Research artifact validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out research branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Compile Python research tools
+        run: python -m py_compile research/ppbfs/p2/scripts/*.py
+
+      - name: Validate frozen workload manifest
+        run: >-
+          python research/ppbfs/p2/scripts/validate_workload_manifest.py
+          --repository-root .
+          --manifest research/ppbfs/p2/WORKLOAD_MANIFEST.csv
+
+      - name: Smoke-test Cypher NFA query generation
+        run: >-
+          python research/ppbfs/p2/scripts/generate_cypher_nfa_queries.py
+          --output-dir "${RUNNER_TEMP}/p2-generated-queries"
+
+      - name: Verify generated query inventory
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s "${RUNNER_TEMP}/p2-generated-queries/query-manifest.csv"
+          test -s "${RUNNER_TEMP}/p2-generated-queries/query-manifest.json"
+          test "$(find "${RUNNER_TEMP}/p2-generated-queries" -maxdepth 1 -name '*.cypher' | wc -l)" -eq 15
+          grep -R --fixed-strings "SHORTEST 2" "${RUNNER_TEMP}/p2-generated-queries"/*.cypher >/dev/null
+
+  focused-runtime-util:
+    name: Focused runtime-util compile and test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out research branch
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Install Maven 3.9.11
+        shell: bash
+        run: |
+          set -euo pipefail
+          MAVEN_VERSION=3.9.11
+          ARCHIVE="apache-maven-${MAVEN_VERSION}-bin.tar.gz"
+          BASE_URL="https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries"
+          curl --fail --location --silent --show-error --output "${ARCHIVE}" "${BASE_URL}/${ARCHIVE}"
+          curl --fail --location --silent --show-error --output "${ARCHIVE}.sha512" "${BASE_URL}/${ARCHIVE}.sha512"
+          printf '%s  %s\n' "$(cat "${ARCHIVE}.sha512")" "${ARCHIVE}" | sha512sum --check --strict
+          tar --extract --gzip --file "${ARCHIVE}" --directory "${RUNNER_TEMP}"
+          echo "${RUNNER_TEMP}/apache-maven-${MAVEN_VERSION}/bin" >> "${GITHUB_PATH}"
+
+      - name: Report toolchain
+        run: |
+          java -version
+          mvn -version
+
+      - name: Compile runtime-util production and test sources
+        run: >-
+          mvn -B -ntp -T1C
+          -pl community/cypher/runtime-util
+          -am
+          -DskipTests
+          test-compile
+
+      - name: Run focused P2 telemetry test
+        run: >-
+          mvn -B -ntp
+          -pl community/cypher/runtime-util
+          -am
+          -Dtest=P2StateBucketTelemetryTest
+          -Dsurefire.failIfNoSpecifiedTests=false
+          -DfailIfNoTests=false
+          -DsequentialTests
+          test
+
+      - name: Check formatting
+        run: >-
+          mvn -B -ntp
+          -pl community/cypher/runtime-util
+          -DskipTests
+          spotless:check
