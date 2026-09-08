@@ -174,11 +174,21 @@ final class BFSExpander implements AutoCloseable {
             var statesById = pair.getTwo();
 
             statesList.clear();
-            for (var nodeState : statesById) {
+            // Indexed scan is semantically identical to the baseline enhanced-for scan over the same list.
+            // RESEARCH-ONLY P2 counters below; timing builds use the clean baseline loop.
+            int scannedSlots = 0;
+            int activeStates = 0;
+            for (int slot = 0; slot < statesById.size(); slot++) {
+                var nodeState = statesById.get(slot);
+                scannedSlots++;
                 if (nodeState != null) {
+                    activeStates++;
                     statesList.add(nodeState.state());
                 }
             }
+            P2Telemetry.onIteration(
+                    statesById, scannedSlots, activeStates, direction == TraversalDirection.FORWARD,
+                    foundNodes.depth(direction));
 
             hooks.expandNode(dbNodeId, statesList, direction);
 
@@ -191,6 +201,8 @@ final class BFSExpander implements AutoCloseable {
                     case FORWARD -> {
                         var nextNode = encounter(foundNode, re.targetState(), direction);
                         var node = statesById.get(re.sourceState().id());
+                        // RESEARCH-ONLY P2 telemetry; timing builds use the clean baseline without this call.
+                        P2Telemetry.onFrontierLookup(statesById, node != null, foundNodes.forwardDepth());
 
                         var signpost = TwoWaySignpost.fromRelExpansion(
                                 mt,
@@ -210,6 +222,8 @@ final class BFSExpander implements AutoCloseable {
                     case BACKWARD -> {
                         var nextNode = encounter(foundNode, re.sourceState(), direction);
                         var node = statesById.get(re.targetState().id());
+                        // RESEARCH-ONLY P2 telemetry; timing builds use the clean baseline without this call.
+                        P2Telemetry.onFrontierLookup(statesById, node != null, foundNodes.backwardDepth());
 
                         var signpost = TwoWaySignpost.fromRelExpansion(
                                 mt, nextNode, pgCursor.relationshipReference(), node, re, tracker.lengths());

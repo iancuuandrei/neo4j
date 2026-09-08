@@ -109,31 +109,36 @@ public final class FoundNodes implements AutoCloseable {
         if (nodeStates == null) {
             nodeStates = HeapTrackingArrayList.newEmptyArrayList(nfaStateCount, memoryTracker);
             frontierBuffer.put(nodeState.id(), nodeStates);
+            // RESEARCH-ONLY P2 telemetry; timing builds use the clean baseline without this call.
+            P2Telemetry.onAlloc(nodeStates, nodeState.id(), nfaStateCount, totalDepth());
         }
+        // RESEARCH-ONLY P2 telemetry; timing builds use the clean baseline without this call.
+        boolean duplicate = P2Telemetry.ENABLED && nodeStates.get(nodeState.state().id()) != null;
         nodeStates.set(nodeState.state().id(), nodeState);
+        P2Telemetry.onWrite(nodeStates, nodeState.state().id(), duplicate, totalDepth());
     }
 
     /** Look up a NodeState. O(N) wrt history length */
     public NodeState get(long nodeId, int stateId) {
-        var nodeState = getFromLevel(frontierBuffer, nodeId, stateId);
+        var nodeState = getFromLevel(frontierBuffer, nodeId, stateId, P2Telemetry.ROLE_BUFFER);
         if (nodeState != null) {
             return nodeState;
         }
 
-        nodeState = getFromLevel(forwardFrontier, nodeId, stateId);
+        nodeState = getFromLevel(forwardFrontier, nodeId, stateId, P2Telemetry.ROLE_FORWARD);
         if (nodeState != null) {
             return nodeState;
         }
 
         if (mode == SearchMode.Bidirectional) {
-            nodeState = getFromLevel(backwardFrontier, nodeId, stateId);
+            nodeState = getFromLevel(backwardFrontier, nodeId, stateId, P2Telemetry.ROLE_BACKWARD);
             if (nodeState != null) {
                 return nodeState;
             }
         }
 
         for (int i = history.size() - 1; i >= 0; i--) {
-            nodeState = getFromLevel(history.get(i), nodeId, stateId);
+            nodeState = getFromLevel(history.get(i), nodeId, stateId, P2Telemetry.ROLE_HISTORY);
             if (nodeState != null) {
                 return nodeState;
             }
@@ -142,15 +147,23 @@ public final class FoundNodes implements AutoCloseable {
     }
 
     private NodeState getFromLevel(
-            HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> level, long nodeId, int stateId) {
+            HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> level,
+            long nodeId,
+            int stateId,
+            int telemetryRole) {
         if (level.isEmpty()) {
             return null;
         }
         var nodeStates = level.get(nodeId);
         if (nodeStates == null) {
+            // RESEARCH-ONLY P2 telemetry; timing builds use the clean baseline without this call.
+            P2Telemetry.onCanonicalProbe(null, false, telemetryRole, totalDepth());
             return null;
         }
-        return nodeStates.get(stateId);
+        var result = nodeStates.get(stateId);
+        // RESEARCH-ONLY P2 telemetry; timing builds use the clean baseline without this call.
+        P2Telemetry.onCanonicalProbe(nodeStates, result != null, telemetryRole, totalDepth());
+        return result;
     }
 
     /** Allocates a new buffer based on the size of the previous one */
