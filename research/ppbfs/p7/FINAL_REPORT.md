@@ -1,6 +1,12 @@
 # P7 final report — decouple path enumeration from tracing bookkeeping (WALK-only)
 
-Verdict: **YES — workload-specific but worthwhile (WALK-only).**
+Verdict: **STRONG REAL-WORLD CASE** (narrow mode, broad problem within it —
+see `MATERIALITY_REPORT.md`).
+
+P7 remains limited to `StatefulShortestPath(All, Walk)`, but within that mode
+post-saturation tracing is a common and sometimes dominant cost across multiple
+real graph topologies. Original mechanism verdict: YES — workload-specific but
+worthwhile (WALK-only); the real-workload study upgraded this to strong.
 
 Question: after a target saturates (no more result paths needed), PPBFS `PathTracer`
 keeps enumerating every represented path combination purely to establish bookkeeping
@@ -124,8 +130,13 @@ non-targeted modes keep baseline behavior exactly).
 - Full module suite: 539 tests, 1 error reproduced identically on the pristine
   baseline: `PPBFSMaterialityBenchmarkTest` NPE on the missing
   `ppbfs.metrics.output` sysprop (benchmark-harness-only; unrelated to P7).
-- Remaining non-blocking qualification: query-level end-to-end / JFR timing and
-  maintainer review. No upstream issue/PR created.
+- Real-world qualification complete: `p7/MATERIALITY_REPORT.md` (STRONG
+  REAL-WORLD CASE). LiveJournal 56/68 queries improved, 93.5% of post-saturation
+  pushes removed; web-Stanford 93.4% removed with 6–7x timing and timeouts 6→1;
+  as-Skitter 96.8% removed, 7.3x representative timing; Hetionet neutral
+  (6–17% elimination, ~1.0–1.1x). Real Cypher end-to-end (LJ 2022306 LIMIT 75:
+  baseline >90s timeout vs 53 rows in 52ms). JFR: PPBFS 47%→11% of samples.
+  Upstream issue `neo4j/neo4j#13968` open for architecture feedback; no PR.
 
-Entry points: `p7/FINAL_QUALIFICATION.md`, clean branch
-`contrib/ppbfs-walk-post-saturation-bookkeeping`.
+Entry points: `p7/FINAL_QUALIFICATION.md`, `p7/MATERIALITY_REPORT.md`, clean
+branch `contrib/ppbfs-walk-post-saturation-bookkeeping`.

@@ -80,15 +80,18 @@ unsound (hybrid justification). Model only — the normative evidence is §3.1�
 - Unique-path / K-exhausts-all / one-signpost / shallow cases: memo engages
   rarely or never; model-level runs show candidate ops == baseline ops.
 
-## 5. Open (non-blocking) qualification
+## 5. Qualification status (updated: real-world study complete)
 
-1. **Query-level end-to-end / JFR timing**: mechanism-level push reduction is
-   proven, but the spec's own bar requires showing tracing share matters
-   end-to-end on a real workload. Pending; needs a graph with high shortest-path
-   multiplicity under unbound/multi-target WALK PPBFS.
-2. **Maintainer review**: no upstream issue/PR created yet (deliberate).
-3. **K GROUPS + non-inlined-predicate saturation paths**: mechanics identical by
-   code inspection; no dedicated differential test (saturation flag is shared).
+1. **Query-level end-to-end / JFR timing**: DONE — see
+   `p7/MATERIALITY_REPORT.md`. Whole-PPBFS speedups 6–28x with CIs on
+   LJ/web-Stanford/as-Skitter; real Cypher end-to-end confirms (LJ 2022306
+   LIMIT 75: baseline >90s timeout vs 53 rows in 52ms); JFR moves PPBFS from
+   47% to 11% of samples with allocation samples down 44%. Hetionet neutral.
+2. **Maintainer review**: upstream issue `neo4j/neo4j#13968` open for
+   architecture feedback; no PR submitted.
+3. **K GROUPS saturation paths**: covered — LJ K GROUPS K=2 differential run
+   (20 sources, 0 mismatches, 5% elimination); non-inlined-predicate paths
+   share the saturation flag by code inspection.
 
 ## 6. Reviewer checklist for the contrib branch
 

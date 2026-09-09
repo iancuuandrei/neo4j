@@ -98,12 +98,15 @@ combination purely for bookkeeping side effects. P7 replaces that residual
 enumeration with memoized completion over compact `(NodeState, sourceLength)`
 states — WALK only, unbound searches only. Bound `intoTarget` searches terminate
 globally on saturation (no residual work); TRAIL/ACYCLIC validity depends on
-full path history and keeps exhaustive tracing. Verdict: YES — workload-specific
-but worthwhile (WALK-only). Evidence: Walk repeated-diamond d=6, 948 baseline
-pushes vs 200 P7 pushes (4.74x); `PGPathPropagatingBFSP7Test` differential
-(rows/schedules/target-signposts/prunes equal on-off; bound/Trail zero delta);
-PPBFS suites 134/134 green. Base: `736cad02a36bb4a0d32c1064f44768339c814269`
-(upstream/2026.08). Open: query-level/JFR timing, maintainer review (no
-issue/PR yet).
+full path history and keeps exhaustive tracing. Verdict: **STRONG REAL-WORLD
+CASE** — narrow `ExpandAll + Walk` applicability, but high prevalence/severity
+once that mode is used: LiveJournal 56/68 queries improved (93.5% of
+post-saturation pushes removed), web-Stanford 93.4% removed with 6–7x timing,
+as-Skitter 96.8% removed, Hetionet neutral; real Cypher end-to-end (LJ 2022306
+LIMIT 75: baseline >90s timeout vs 53 rows in 52ms); JFR PPBFS 47%→11%.
+Evidence: mechanism d=6 (948→200 pushes); `PGPathPropagatingBFSP7Test`
+differential; PPBFS suites 134/134 green. Base:
+`736cad02a36bb4a0d32c1064f44768339c814269` (upstream/2026.08). Upstream issue
+`neo4j/neo4j#13968` open; no PR.
 
-Entry points: `p2/FINAL_REPORT.md`, `p2/FINAL_QUALIFICATION.md`, `p7/FINAL_REPORT.md`, `p7/FINAL_QUALIFICATION.md`, `MAINTAINER_HANDOFF.md`.
+Entry points: `p2/FINAL_REPORT.md`, `p2/FINAL_QUALIFICATION.md`, `p7/FINAL_REPORT.md`, `p7/FINAL_QUALIFICATION.md`, `p7/MATERIALITY_REPORT.md`, `MAINTAINER_HANDOFF.md`.

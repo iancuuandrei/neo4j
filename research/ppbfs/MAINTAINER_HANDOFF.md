@@ -83,10 +83,14 @@ history-dependent), unbound-only (bound searches terminate globally on
 saturation). Measured on Walk repeated diamonds d=6: 948 baseline pushes vs 200
 P7 pushes (4.74x); `PGPathPropagatingBFSP7Test` proves identical rows, schedules,
 target-signpost registrations and prunes, with bound/Trail zero-delta controls.
-Branch: `contrib/ppbfs-walk-post-saturation-bookkeeping` (base
-`736cad02a36bb4a0d32c1064f44768339c814269`, upstream/2026.08). No upstream
-issue/PR yet; end-to-end/JFR timing pending. Evidence: `p7/FINAL_REPORT.md`,
-`p7/FINAL_QUALIFICATION.md`.
+Real-world qualification (STRONG REAL-WORLD CASE): LJ 56/68 improved with 93.5%
+of post-saturation pushes removed; web-Stanford 93.4% removed, 6–7x timing,
+timeouts 6→1; as-Skitter 96.8% removed; Hetionet neutral; real Cypher end-to-end
+(LJ 2022306 LIMIT 75: baseline >90s timeout vs 53 rows in 52ms); JFR PPBFS
+47%→11%. Branch: `contrib/ppbfs-walk-post-saturation-bookkeeping` (base
+`736cad02a36bb4a0d32c1064f44768339c814269`, upstream/2026.08). Upstream issue
+`neo4j/neo4j#13968` open for architecture feedback; no PR. Evidence:
+`p7/FINAL_REPORT.md`, `p7/FINAL_QUALIFICATION.md`, `p7/MATERIALITY_REPORT.md`.
 
 ---
 

@@ -61,7 +61,9 @@ P2
 
 P7
  - WALK post-saturation bookkeeping (contrib/ppbfs-walk-post-saturation-bookkeeping)
- - final verdict YES, workload-specific WALK-only (p7/FINAL_REPORT.md, p7/FINAL_QUALIFICATION.md)
+ - final verdict STRONG REAL-WORLD CASE: narrow ExpandAll + Walk applicability,
+   high prevalence/severity once used (p7/FINAL_REPORT.md, p7/FINAL_QUALIFICATION.md,
+   p7/MATERIALITY_REPORT.md)
 ```
 
 The research chain below documents the P1 stages (kept for provenance; stage verdicts were
