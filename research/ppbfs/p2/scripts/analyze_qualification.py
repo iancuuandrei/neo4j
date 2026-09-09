@@ -27,16 +27,22 @@ oracle = defaultdict(dict)
 tracked = defaultdict(dict)
 for path in glob.glob(os.path.join(args.runs, "screen-*.csv")):
     base = os.path.basename(path)
-    # screen-{variant}-fork{fork}-{stamp}.csv ; variant has no dashes
+    # screen-{variant}-fork{fork}-{stamp}.csv ; pre-rig files without a fork label are ignored
+    if "-fork" not in base:
+        continue
     try:
         rest = base[len("screen-"):-len(".csv")]
         variant, rest2 = rest.split("-", 1)
         fork = rest2.split("-", 1)[0].replace("fork", "")
     except ValueError:
         continue
+    if fork == "0":
+        continue  # superseded seed-1 trial runs; qualification uses forks 1..N
     for r in csv.DictReader(open(path)):
         if r.get("variant", variant) != variant:
             continue
+        if r.get("fork", fork) == "0":
+            continue  # superseded single-JVM screening runs; qualification uses forks 1..N
         cell[(variant, fork)][r["workload"]].append(int(r["elapsed_ns"]))
         oracle[(variant, fork, r["workload"])] = (r["rows"], r["hash"])
         tracked[(variant, fork, r["workload"])] = (r.get("repeats", "?"), int(r["tracked_bytes"]))

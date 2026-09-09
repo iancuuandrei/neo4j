@@ -64,6 +64,7 @@ class P2TimingScreen extends RuntimeUtilTestSuite with PGPathPropagatingBFSTestB
     maxDepth: Int = -1,
     k: Int = Int.MaxValue,
     intoTarget: Long = -1L,
+    bidirectional: Boolean = false,
     repeats: Int = 1
   )
 
@@ -158,11 +159,43 @@ class P2TimingScreen extends RuntimeUtilTestSuite with PGPathPropagatingBFSTestB
     val (grid30, gridSrc) = gridGraph(30, 30)
     val (dia, diaSrc) = diamondGraph(3, 4)
     val (c500, c500Src) = chainGraph(500)
+    val (h3dia, h3Src) = diamondGraph(4, 5)
+    // out node of the diamond builder is not returned; rediscover: rebuild explicitly for into-target
+    val h3b = InMemoryGraph.builder
+    val h3source = h3b.node()
+    var h3prev: Seq[Long] = Seq(h3source)
+    for (_ <- 0 until 4) {
+      val cur = (0 until 5).map(_ => h3b.node())
+      for (a <- h3prev; c <- cur) h3b.rel(a, c)
+      h3prev = cur
+    }
+    val h3target = h3b.node()
+    h3prev.foreach(a => h3b.rel(a, h3target))
+    val h3graph = h3b.build()
+    // depth-2 variant so the 2-hop branch NFA reaches the target (H3 distances are short)
+    val h3sb = InMemoryGraph.builder
+    val h3ssource = h3sb.node()
+    val h3mid = (0 until 5).map(_ => h3sb.node())
+    h3mid.foreach(m => h3sb.rel(h3ssource, m))
+    val h3starget = h3sb.node()
+    h3mid.foreach(m => h3sb.rel(m, h3starget))
+    val h3sgraph = h3sb.build()
     Seq(
       Workload("chain2000-s255", c2000, cSrc, repChainNfa(126), repeats = 10),
+      Workload("chain2000-s509", c2000, cSrc, repChainNfa(252), repeats = 10),
       Workload("chain2000-s31", c2000, cSrc, repChainNfa(14), repeats = 20),
       Workload("star2000-s33", star2000, starSrc, fanoutNfa(32), intoTarget = starLeaf, repeats = 20),
       Workload("grid30-s19", grid30, gridSrc, repChainNfa(8), k = 3, repeats = 5),
+      // NOTE grid60-s63 removed 2026-09-09: InMemoryGraph.nodeRels scans O(E) per expansion,
+      // infeasible for repeated timing in EVERY variant (B0 included). grid30 retains coverage.
+      // H3 analog: S=5, k=3, deep reconvergent diamond (lookup-heavy small-NFA regime)
+      Workload("h3analog-s5", h3dia, h3Src, branchNfa(3, 0), repeats = 10),
+      // H3 analog, bidirectional into-target with k=2 like the real H3 query
+      Workload("h3analog-bidi-s5", h3graph, h3source, branchNfa(3, 0),
+        k = 2, intoTarget = h3target, bidirectional = true, repeats = 10),
+      // depth-matched bidi analog: 2-hop NFA reaches the bound target (rows>0)
+      Workload("h3analog-bidi2-s5", h3sgraph, h3ssource, branchNfa(3, 0),
+        k = 2, intoTarget = h3starget, bidirectional = true, repeats = 10),
       Workload("diamond-dense-s18", dia, diaSrc, branchNfa(16, 0), repeats = 10),
       Workload("tiny-chain500-s4", c500, c500Src, nfa("s" |> ("a" --> "b") |> "t"), repeats = 30)
     )
@@ -170,12 +203,15 @@ class P2TimingScreen extends RuntimeUtilTestSuite with PGPathPropagatingBFSTestB
 
   private def runOnce(w: Workload): (Long, Long, Long, String) = {
     val mt = new LocalMemoryTracker()
+    // -Dp2.repeatsScale=N lengthens runs for profiler attribution (default 1).
+    val scale = Option(System.getProperty("p2.repeatsScale")).map(_.toInt).getOrElse(1)
+    val totalRepeats = w.repeats * scale
     val t0 = System.nanoTime()
     var rows = 0L
     var lenSum = 0L
     val perPath = new java.util.ArrayList[String]()
     var r = 0
-    while (r < w.repeats) {
+    while (r < totalRepeats) {
       val fb0 = fixture()
         .withGraph(w.graph)
         .from(w.source)
@@ -183,7 +219,9 @@ class P2TimingScreen extends RuntimeUtilTestSuite with PGPathPropagatingBFSTestB
         .withMaxDepth(w.maxDepth)
         .withK(w.k)
         .withMemoryTracker(mt)
-      val fb = if (w.intoTarget != -1L) fb0.into(w.intoTarget, SearchMode.Unidirectional) else fb0
+      val fb = if (w.intoTarget != -1L)
+        fb0.into(w.intoTarget, if (w.bidirectional) SearchMode.Bidirectional else SearchMode.Unidirectional)
+      else fb0
       val iter = fb.build().asScala
       while (iter.hasNext) {
         val path = iter.next()
