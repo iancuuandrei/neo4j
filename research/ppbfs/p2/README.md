@@ -1,10 +1,11 @@
 # Neo4j PPBFS P2 — sparse NFA-state storage research
 
-## Status
+## Status (2026-09-09): concluded — verdict B (useful mainly with P1)
 
-`INFERRED` program; `MEASURED` claims appear only with recorded experiments.
-Active branch: `research/ppbfs-p2-baseline-instrumentation` (instrumentation only — never a timing baseline).
-See `REPO_ARCHAEOLOGY.md` (`SOURCE-CONFIRMED` on the historical baseline) and `ACCESS_PATTERN.md` (roles and operation mix).
+Final: `FINAL_REPORT.md`. Phases 1–7 complete; P1 interaction complete; no `contrib/*` extraction
+(conditional on P1 graduation — see `MAINTAINER_HANDOFF.md`). All `MEASURED` claims resolve to
+append-only runs on `D:`; frozen branches untouched (verified: no commits on
+`contrib/*`, `research/ppbfs-lab`, `research/ppbfs-c4-*`, `benchmark/*`).
 
 ## Baselines (`SOURCE-CONFIRMED`)
 
