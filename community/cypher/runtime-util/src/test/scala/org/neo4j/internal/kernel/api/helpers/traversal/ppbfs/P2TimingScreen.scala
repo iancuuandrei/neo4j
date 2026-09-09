@@ -245,6 +245,7 @@ class P2TimingScreen extends RuntimeUtilTestSuite with PGPathPropagatingBFSTestB
       // Hostile high-g/i: F=8 fanout multiplies exact lookups per large-k bucket.
       Workload("hostile-k32-f8", fanW2F8, fanW2F8Src, branchNfa(32, 0), repeats = 5),
       Workload("hostile-k64-f8", fanW2F8, fanW2F8Src, branchNfa(64, 0), repeats = 3),
+      Workload("hostile-k128-f8", fanW2F8, fanW2F8Src, branchNfa(128, 0), repeats = 2),
       // Deep-repeat merge pressure (C4 retired index activates at depth>=8 with revisits).
       Workload("grid-deep-merge-s31", grid20, grid20Src, repChainNfa(14), k = 3, repeats = 3)
     )

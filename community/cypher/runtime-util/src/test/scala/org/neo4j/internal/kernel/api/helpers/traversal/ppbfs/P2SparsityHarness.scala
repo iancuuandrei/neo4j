@@ -382,6 +382,11 @@ class P2SparsityHarness extends RuntimeUtilTestSuite with PGPathPropagatingBFSTe
     run("hostile-k64-f8", g, src, branchNfa(64, 0))
   }
 
+  test("p2 hostile k128 F8 (high exact-lookup pressure)") {
+    val (g, src) = fanoutLayerGraph(2, 8)
+    run("hostile-k128-f8", g, src, branchNfa(128, 0))
+  }
+
   test("p2 deep-repeat merge pressure (20x20 grid, 14-rel reach)") {
     val (g, src) = gridGraph(20, 20)
     run("grid-deep-merge-s31", g, src, repChainNfa(14), maxDepth = -1, k = 3)
