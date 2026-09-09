@@ -15,6 +15,7 @@ stay reviewable.
 | PPBFS WALK post-saturation bookkeeping | StatefulShortestPath / PPBFS | **Candidate** | Walk repeated-diamond d=6: 948→200 trace pushes (4.74x); identical rows and propagation bookkeeping | [Case study](docs/contributions/ppbfs-walk-post-saturation-bookkeeping.md) | [Clean branch](https://github.com/iancuuandrei/neo4j/tree/contrib/ppbfs-walk-post-saturation-bookkeeping) | Not submitted upstream |
 | PPBFS frontier work selection | StatefulShortestPath / PPBFS | **Planned** | Not measured | [Case study](docs/contributions/ppbfs-frontier-work-selection.md) | Not created | Not submitted |
 | PPBFS transition dispatch | StatefulShortestPath / PPBFS | **Planned** | Not measured | [Case study](docs/contributions/ppbfs-transition-dispatch.md) | Not created | Not submitted |
+| SSP to FSP specialization for simple QPP node groups | StatefulShortestPath / FindShortestPaths | **Candidate** | chain16 1.89x; chain64 1.92x; diamond 1.42x; tree b4/d6 5.49x; A-specific 1.47x | [Case study](docs/contributions/p10-shortest-path-specialization.md) | [Clean branch](https://github.com/iancuuandrei/neo4j-contributions/tree/contrib/ssp-to-fsp-node-groups) | [neo4j/neo4j#13969](https://github.com/neo4j/neo4j/issues/13969) |
 
 ## Current research
 

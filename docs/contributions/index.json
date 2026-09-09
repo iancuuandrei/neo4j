@@ -56,6 +56,20 @@
       "upstreamPR": null,
       "mergedCommit": null,
       "validatedImpact": null
+    },
+    {
+      "slug": "p10-shortest-path-specialization",
+      "title": "SSP to FSP specialization for simple QPP node groups",
+      "area": "StatefulShortestPath / FindShortestPaths",
+      "status": "candidate",
+      "branch": "contrib/ssp-to-fsp-node-groups",
+      "branchUrl": "https://github.com/iancuuandrei/neo4j-contributions/tree/contrib/ssp-to-fsp-node-groups",
+      "researchBranch": "research/ssp-to-fsp-p10",
+      "researchBranchUrl": "https://github.com/iancuuandrei/neo4j-contributions/tree/research/ssp-to-fsp-p10",
+      "upstreamIssue": "neo4j/neo4j#13969",
+      "upstreamPR": null,
+      "mergedCommit": null,
+      "validatedImpact": "chain16 1.89x, chain64 1.92x, diamond 1.42x, tree b4/d6 5.49x, A-specific 1.47x; tax ~noise; existing FSP ~1.00x"
     }
   ]
 }
