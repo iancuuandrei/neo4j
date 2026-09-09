@@ -35,9 +35,25 @@ import org.neo4j.util.Preconditions;
 public final class PathTracer<Row> extends PrefetchingIterator<Row> {
     private final PPBFSHooks hooks;
     private final SignpostStack stack;
+    private final MemoryTracker memoryTracker;
+    private final boolean walkMode;
     private NodeState sourceNode;
 
     private Function<SignpostStack, Row> toRow;
+
+    /**
+     * P7 gate: post-saturation memoized completion only pays off where the tracer keeps running
+     * after a target saturates (unbound/multi-target searches). Bound {@code intoTarget} searches
+     * terminate globally on saturation and never re-enter the tracer, so PGPathPropagatingBFS
+     * disables P7 for them. Defaults to {@code true} so standalone/test uses stay exact.
+     */
+    private boolean p7Enabled = true;
+
+    /**
+     * P7 memo, allocated lazily on the first post-saturation push and closed in {@link #reset}.
+     * Null means either the target never saturated while tracing, or the mode is not WALK.
+     */
+    private PostSaturationMemo postSaturationMemo;
 
     /**
      * Because path tracing performs much of the bookkeeping of PPBFS, we may need to continue to trace paths to a
@@ -59,6 +75,18 @@ public final class PathTracer<Row> extends PrefetchingIterator<Row> {
     public PathTracer(MemoryTracker memoryTracker, TraversalPathModeFactory tracker, PPBFSHooks hooks) {
         this.hooks = hooks;
         this.stack = new SignpostStack(memoryTracker, tracker.twoWaySignpostTracking(), hooks);
+        this.memoryTracker = memoryTracker;
+        this.walkMode = tracker.lengths().isWalkMode();
+    }
+
+    /**
+     * Enables or disables P7 post-saturation memoized completion. Called once by
+     * PGPathPropagatingBFS (disabled for bound {@code intoTarget} searches, which terminate
+     * globally on saturation). The memo stays WALK-only regardless of this flag: TRAIL/ACYCLIC
+     * bookkeeping is history-dependent and always uses exhaustive tracing.
+     */
+    public void setP7Enabled(boolean p7Enabled) {
+        this.p7Enabled = p7Enabled;
     }
 
     /**
@@ -71,6 +99,10 @@ public final class PathTracer<Row> extends PrefetchingIterator<Row> {
         this.ready = false; // until initialize is called, consider the iterator invalid
         this.sourceNode = null;
         this.stack.reset();
+        if (this.postSaturationMemo != null) {
+            this.postSaturationMemo.close();
+            this.postSaturationMemo = null;
+        }
     }
 
     /**
@@ -124,6 +156,11 @@ public final class PathTracer<Row> extends PrefetchingIterator<Row> {
 
         while (stack.hasNext()) {
             if (!stack.pushSignpost()) {
+                // The level is exhausted: in WALK post-saturation mode its bookkeeping suffix is
+                // now fully computed, so record (headNode, lengthFromSource) as complete.
+                if (postSaturationMemo != null) {
+                    postSaturationMemo.onLevelExhausted(stack.headNode(), stack.lengthFromSource());
+                }
                 popAndPrune();
             } else {
                 var sourceSignpost = stack.headSignpost();
@@ -132,6 +169,28 @@ public final class PathTracer<Row> extends PrefetchingIterator<Row> {
                 // longer source lengths through the chain after BFS lengths are pruned.
                 if (!sourceSignpost.hasBeenTraced()) {
                     sourceSignpost.setMinTargetDistance(stack.lengthToTarget(), PGPathPropagatingBFS.Phase.Tracing);
+                }
+
+                // P7 (WALK only): after saturation, skip descending into an already-completed
+                // compact state. The signpost above was still pushed and first-traced, so
+                // first-discovery order and minTargetDistance values are preserved; only the
+                // redundant subtree walk is skipped. WALK has no uniqueness tracking
+                // (canAbandonTraceBranch is always false), no-op validation and no pruning
+                // (every seen length counts as validated), so the skipped suffix is provably
+                // identical bookkeeping. Allocated lazily on first post-saturation push.
+                if (p7Enabled && walkMode && isSaturated()) {
+                    if (postSaturationMemo == null) {
+                        postSaturationMemo = new PostSaturationMemo(memoryTracker);
+                    }
+                    postSaturationMemo.ensureSeeded(stack);
+                    var childNode = stack.headNode();
+                    int childLength = stack.lengthFromSource();
+                    if (postSaturationMemo.isCompleted(childNode, childLength)
+                            || postSaturationMemo.isOnPath(childNode, childLength)) {
+                        stack.popSignpost();
+                        continue;
+                    }
+                    postSaturationMemo.onDescend(childNode, childLength);
                 }
 
                 if (stack.canAbandonTraceBranch()) {
