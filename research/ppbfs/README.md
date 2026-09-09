@@ -33,14 +33,34 @@ Large downloads, imported databases, distributions, profiles, and raw logs live
 outside Git. On this machine `.cache/neo4j-ppbfs-research` is a Git-ignored link
 to the shared artifact store. Never commit those large artifacts.
 
-## Current baseline
+## Current baseline/status (updated 2026-09-09; authoritative: STATUS.md)
 
 The state-index experiment is based on:
 
 ```text
 neo4j/neo4j @ f213380f812b820a1b312e2ea52cb3d8f1931ccc
 upstream branch: 2026.07
+upstream cross-check: 736cad02a36bb4a0d32c1064f44768339c814269 (upstream/2026.08)
 ```
+
+Current project map (detail: `STATUS.md`, `MAINTAINER_HANDOFF.md`):
+
+```text
+P1
+ ├─ C1 clean candidate (contrib/ppbfs-direct-state-index) — maintainer benchmarking pending
+ ├─ C4 clean candidate (contrib/ppbfs-deferred-state-index) — maintainer benchmarking pending
+ └─ neo4j/neo4j#13966 open, no maintainer verdict yet
+
+
+P2
+ ├─ fixed-V standalone research (research/ppbfs-p2-sorted-vector)
+ ├─ C1+P2 (research/ppbfs-p2-c1-interaction)
+ ├─ C4+P2 (research/ppbfs-p2-c4-interaction)
+ └─ final verdict B (p2/FINAL_REPORT.md, p2/FINAL_QUALIFICATION.md)
+```
+
+The research chain below documents the P1 stages (kept for provenance; stage verdicts were
+superseded by `STATUS.md`):
 
 The research chain is intentionally linear:
 
@@ -54,10 +74,11 @@ bb48edd50d1  adaptive node-major bucket prototype
 ```
 
 Candidate decisions and the conditional C3 definition are maintained in
-`state-index/reports/CANDIDATE_MATRIX.md`. C2 triggered C3, but C3 failed the
-mandatory 92 MiB gate. B0 remains the retained design and no direct-state-index
-contribution is authorized. The consolidated verdict is in
-`state-index/BENCHMARK_REPORT.md`.
+`state-index/reports/CANDIDATE_MATRIX.md`. At that stage C2 triggered C3, C3 failed the
+mandatory 92 MiB gate, and B0 was the retained design with no direct-state-index contribution
+authorized; the consolidated stage verdict is in `state-index/BENCHMARK_REPORT.md`. Those
+stage conclusions were later superseded: C1/C4 clean candidates exist and await the
+maintainer decision (see `STATUS.md`).
 
 Reusable local artifacts remain immutable/versioned where practical. Completed
 and negative evidence is preserved under `state-index/results/2026-09-04/`.

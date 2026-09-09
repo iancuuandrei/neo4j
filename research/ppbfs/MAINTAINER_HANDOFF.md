@@ -1,48 +1,89 @@
-# PPBFS deferred product-state index: maintainer handoff
+# PPBFS P1/P2 maintainer handoff (unified, current as of 2026-09-09)
 
-## Problem
+Prior C4-only handoff superseded (history preserved in Git). Scope: what to review, what was
+measured, what decision is needed. Personal repository: `iancuuandrei/neo4j-contributions`.
+Issue: `neo4j/neo4j#13966` (open, assigned `alexfoxgill`; maintainer benchmarking pending).
 
-`FoundNodes.get(nodeId, stateId)` checks active structures and then scans every
-retired BFS level. On deep `StatefulShortestPath` searches, this makes lookup
-bookkeeping grow with history depth. A controlled depth-4096 chain measured
-4,097 lookups and 8,382,465 historical probes; JFR attributed about 50.9% of B0
-execution samples to `FoundNodes.get` on a representative deep road query.
+## 1. Problem
 
-## Existing B0 behavior
+`FoundNodes.get(nodeId, stateId)` checks active structures, then scans every retired BFS level
+newest-first, so canonical product-state lookup scales with retained history depth (measured:
+8,382,465 historical probes for 4,097 lookups on a controlled depth-4096 chain; ~50.9% of B0
+samples on a representative deep road query). Separately, per-node state buckets allocate and
+scan `O(S)` (`newEmptyArrayList(nfaStateCount)` per visited node) even when only `k << S`
+states are active (measured: 99.2% null scans at S=255).
+
+## 2. P1 C1 — always-on direct canonical index
+
+`contrib/ppbfs-direct-state-index` (`0a8ef5…`, frozen): long-lived canonical node→state
+repository; frontiers released on retire. Simplest implementation; strong deep-query speedups
+(C1-class ≈4.1–4.4× roadNet d250+); small allocation/memory tax (PA d250 limit 93 vs 92 MiB).
+Draft PR #2 (open, personal fork).
+
+## 3. P1 C4 — deferred retired-state index (H=8)
+
+`contrib/ppbfs-deferred-state-index` (`7411ac…`, frozen): baseline probing for 8 history
+levels, then ownership-transfer/merge of retiring frontier buckets into one direct index.
+C1-class deep speed (4.370x [3.838, 4.976] PA; 4.098x [3.231, 5.197] CA), better
+shallow/allocation balance (H3 1.003x equivalent; below C1 allocation in every qualified JFR),
+more lifecycle complexity. Draft PR #3 (open, personal fork). Full detail in the prior handoff
+sections preserved below (activation, ownership, H=8 rationale, convention check).
+
+## 4. P2 follow-up — fixed sorted-vector state bucket
+
+`StateBucket`: only active states, ascending state-ID order, linear lookup with early exit,
+append fast-path, exact memory tracking. No adaptive promotion, hash, range, or specialization
+(each rejected with evidence). Standalone: +16.6% [5.4, 28.1] (S=255), +5.1% (S=507);
+tracked memory −2.5–4×; falsification survived through k=256 at g/i≈1150 (kill shot 0.996
+[0.967, 1.022]); small-S/dense/tiny/bidi/high-fanout neutral. Not proposed standalone.
+Evidence: `p2/FINAL_REPORT.md`, `p2/FINAL_QUALIFICATION.md`.
+
+## 5. P1+P2 interaction
+
+- C1 → C1+P2 (`research/ppbfs-p2-c1-interaction`): −2.6–4.2× bucket memory; chain255 +51%
+  [1.369, 1.624]; roadNet-PA deep preserved (0.973; 772-pair 1.043; results matched).
+- C4 → C4+P2 (`research/ppbfs-p2-c4-interaction`): same memory shape; chain255 +50%;
+  roadNet-772 pooled-6 ≈0.949 (bounded, no destruction); retired merge stays
+  occupied-proportional (audit passed, no redesign).
+- All oracles identical across B0/V/C1/C1P2/C4/C4P2; server result sets matched everywhere.
+
+## 6. Strongest measured regression (disclosed)
+
+~6% C1+P2 (~3% C4+P2) on lookup-saturated tiny-NFA canonical H3 traffic (10 forks each,
+order-balanced pooled: 0.9389 / 0.9701; k≈3–4, so promotion cannot fix that corner).
+Nothing is described as regression-free.
+
+## 7. Branch map
 
 ```text
-active buffer/frontier -> history[level][node][state]
-                           ^ scan newest to oldest for every miss
+contrib/ppbfs-direct-state-index      0a8ef5…  C1 clean candidate (frozen)
+contrib/ppbfs-deferred-state-index    7411ac…  C4 clean candidate (frozen)
+research/ppbfs-p2-sorted-vector       a007e43… fixed-V research (frozen)
+research/ppbfs-p2-c1-interaction      7743248… C1+P2 research (frozen)
+research/ppbfs-p2-c4-interaction      9c8624c… C4+P2 research (frozen)
+research/ppbfs-p2-final-qualification 8797dcb… authoritative P2 evidence (frozen)
+research/ppbfs-lab                    THIS BRANCH — canonical docs + P2 archive (p2/)
+archive/ppbfs-lab-pre-p1-p2-status-sync-2026-09-09   pre-sync P1 state (immutable)
 ```
 
-## C1
+## 8. Decision needed from Neo4j
 
-```text
-active scheduling buckets
-          +
-always-on canonical node -> state[] index
-```
+> C1 remains the simpler P1 design; C4 trades additional lifecycle complexity for a better
+> common-case resource balance. P2 now removes much of the state-bucket memory tax from either
+> design but introduces a measured ~3–6% lookup-saturated tiny-NFA corner cost. The research
+> side is complete; the remaining question is which P1 architecture, if either, Neo4j's
+> internal benchmarks prefer.
 
-C1 is the smallest conceptual change and has the strongest original latency
-result. It duplicates canonical and scheduling bucket structures from the first
-discovery, increasing allocation and shifting selected memory boundaries.
+---
 
-## C4
+## Prior C4-only handoff sections (preserved)
 
-```text
-first H=8 retired levels -> frozen bounded prefix
-later retired frontier  -> node -> state[] retired index
-                            move unique buckets; merge repeated nodes
+### C4 problem restatement
 
-lookup: buffer -> active frontier(s) -> retired index -> frozen prefix
-```
+`FoundNodes.get(nodeId, stateId)` checks active structures and then scans every retired BFS
+level (see §1).
 
-C4 defers indexing until history is deep enough to matter. The first qualifying
-retiring map becomes the index. Later unique buckets are transferred, not
-copied; repeated-node buckets merge by state slot and require exact object
-identity on collisions. Active storage is never aliased into retired storage.
-
-## Why C4 exists
+### C1 vs C4 (as previously handed off)
 
 | | C1 | C4 |
 | --- | --- | --- |
@@ -52,64 +93,21 @@ identity on collisions. Active storage is never aliased into retired storage.
 | measured deep speed | strongest | C1-class |
 | measured allocation | above B0 | below C1 in every qualified JFR; still above B0 on deep roads |
 
-## Performance
+### C4 performance (prior)
 
-| Complete synchronized study | Result |
-| --- | ---: |
-| roadNet-PA d250+, B0/C4 | 4.370x [3.838, 4.976] |
-| roadNet-CA d250+, B0/C4 | 4.098x [3.231, 5.197] |
-| Hetionet H3, B0/C4, 10 forks | 1.003x [0.973, 1.033], equivalent within +/-5% |
-| LiveJournal, C1/C4, 10 forks | 1.189x [1.004, 1.408] |
+roadNet-PA d250+ B0/C4 4.370x [3.838, 4.976]; roadNet-CA d250+ 4.098x [3.231, 5.197];
+Hetionet H3 10 forks 1.003x [0.973, 1.033]; LiveJournal C1/C4 1.189x [1.004, 1.408].
+Clean extraction reproduced 7.589x (PA d772) / 7.267x (CA d800) in bounded confirmation.
 
-The exact clean extraction separately reproduced 7.589x at PA d772 and 7.267x
-at CA d800 in a bounded two-fork confirmation. Those smaller checks validate
-the extraction; they do not replace the full study.
+### C4 memory (prior)
 
-## Memory and allocation
+C4 below C1 in every qualified JFR; ≈B0-level on external controls; +3.8–5.7% vs B0 on deep
+roads; PA d250 limits B0 92 / C1 93 / C4 94 MiB; CA d250 B0 102 / C4 104 MiB. Workload-dependent
+tracked observations, not general claims.
 
-| Evidence | Result |
-| --- | --- |
-| qualified JFR | C4 allocated less than C1 in every recording |
-| external controls | approximately B0-level allocation |
-| deep roads | C4 remained +3.8% to +5.7% allocation versus B0 |
-| PA d250 minimum observed limit | B0 92, C1 93, C4 94 MiB |
-| CA d250 minimum observed limit | B0 102, C4 104 MiB |
-| other anchors | many equal; CA d800 C4 observed slightly below B0 |
+### C4 correctness/why-H=8/conventions (prior)
 
-These are workload-dependent tracked-memory observations. They do not establish
-that C4 generally uses less memory.
-
-## Correctness
-
-The clean patch adds focused activation, identity, ownership-transfer, merge,
-bidirectional, empty-retirement, and cleanup tests. The exact candidate passed
-114 focused tests and the complete 529-test `runtime-util` suite with zero
-failures/errors (five existing skips), plus the 129-module Community build.
-Existing PPBFS suites exercise Trail, Walk, Acyclic, bidirectional, interruption,
-and shortest-path lifecycle behavior.
-
-## Why H=8
-
-Three-fork H=4/8/16 sensitivity checks returned identical results throughout.
-Deep-road point estimates differed by at most 5.7%, with intervals generally
-including parity; shallow controls were too noisy to prove equivalence. H=8 is
-therefore a conservative simple point in a broad measured region, not a tuned
-optimum. See [C4_THRESHOLD_SENSITIVITY.md](c4/C4_THRESHOLD_SENSITIVITY.md).
-
-## Neo4j convention check
-
-The patch uses the existing `HeapTrackingLongObjectHashMap`,
-`HeapTrackingArrayList`, and scoped-memory lifecycle already used by PPBFS.
-`HeapTrackingLongObjectHashMap.close()` releases only the map's own arrays and
-does not close values, which makes bucket transfer valid but requires explicit
-closing of merged/discarded incoming buckets. No established collection helper
-was found that expresses this move-or-slot-merge ownership operation more
-directly. No public API or store format changes.
-
-## Open decision
-
-**C1 is the simplest implementation. C4 has the strongest measured Pareto
-balance.** The maintainer choice is whether C4's retirement/ownership complexity
-is justified by its lower shallow/allocation cost relative to C1. Linux results
-have not been measured here; an internal Linux common-case check remains prudent.
-
+Clean patch tests (activation, identity, transfer, merge, bidirectional, empty-retirement,
+cleanup): 114 focused + full 529-test suite green (five skips); H=8 a conservative point in a
+broad measured region (`c4/C4_THRESHOLD_SENSITIVITY.md`); existing tracked collections and
+scoped-memory lifecycle; no public API/store changes.
