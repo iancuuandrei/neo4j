@@ -105,15 +105,19 @@ class P2MemoryLimitProbe extends RuntimeUtilTestSuite with PGPathPropagatingBFST
 
     val chainLimit = lowestPassing("chain2000-s255", chainGraph, chain.head, repChainNfa(126))
     println(s"[$variant/chain2000-s255] lowestPassingBytes=$chainLimit")
-    val starLimit = lowestPassing("star2000-s33", starGraph, center, {
-      nfa("fanout") { sb =>
-        val s = sb.newState("s", isStartState = true)
-        for (i <- 0 until 32) {
-          val f = sb.newState(if (i == 0) "f" else "g", isFinalState = i == 0)
-          s.addRelationshipExpansion(f, types = Array(i + 1), direction = Direction.OUTGOING)
+    val starLimit = lowestPassing(
+      "star2000-s33",
+      starGraph,
+      center, {
+        nfa("fanout") { sb =>
+          val s = sb.newState("s", isStartState = true)
+          for (i <- 0 until 32) {
+            val f = sb.newState(if (i == 0) "f" else "g", isFinalState = i == 0)
+            s.addRelationshipExpansion(f, types = Array(i + 1), direction = Direction.OUTGOING)
+          }
         }
       }
-    })
+    )
     println(s"[$variant/star2000-s33] lowestPassingBytes=$starLimit")
   }
 }

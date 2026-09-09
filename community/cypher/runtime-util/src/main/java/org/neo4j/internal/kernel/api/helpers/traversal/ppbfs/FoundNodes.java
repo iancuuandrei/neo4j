@@ -138,8 +138,7 @@ public final class FoundNodes implements AutoCloseable {
         return null;
     }
 
-    private NodeState getFromLevel(
-            HeapTrackingLongObjectHashMap<StateBucket> level, long nodeId, int stateId) {
+    private NodeState getFromLevel(HeapTrackingLongObjectHashMap<StateBucket> level, long nodeId, int stateId) {
         if (level.isEmpty()) {
             return null;
         }
