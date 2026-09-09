@@ -11,9 +11,11 @@ Recordings: `D:/dev/neo4j-research/artifacts/ppbfs/jfr/p2-b0-chain255.jfr`,
 - **chain2000-s255** (strong positive; 164 samples B0 / 161 V): inclusive BFSExpander 88–94%,
   ProductGraphTraversalCursor 78–86%, FoundNodes 5.5–6.8%. B0 `HeapTrackingArrayList` 6.1%
   (leaf `Itr.next`/`elementData`/`get`/`checkIndex` ≈ 4.3%); V shows `StateBucket` 0.0%
-  inclusive — the tiny bucket methods are fully inlined into `getFromLevel`/`expand`
-  (consistent with zero call-layer overhead; the server H3 pair still records outline
-  `StateBucket.get` frames where inlining differs under server JIT load). Allocations on B0
+  inclusive — consistent with zero call-layer overhead in that JVM (zero sampled outline
+  frames is evidence consistent with full inlining there, not proof HotSpot always inlines every
+  call — no `-XX:+PrintInlining` capture was made, deliberately not pursued as not load-bearing;
+  the server H3 pair still records outline `StateBucket.get` frames where inlining differs under
+  server JIT load). Allocations on B0
   led by `Object[]` (283), `HeapTrackingArrayList` (42), `NodeState` (32), `Lengths` (30):
   buckets are top-allocated short-lived structure. Amdahl bound for scan removal (`DERIVED`
   from telemetry counts × fitted `c_slot`): ≈6% of harness elapsed — the measured +17%
@@ -39,6 +41,14 @@ Recordings: `D:/dev/neo4j-research/artifacts/ppbfs/jfr/p2-b0-chain255.jfr`,
   `END_TO_END_RESULTS.md`): the v2 “regression” was cold-cache order imbalance, not buckets.
 - `BFSExpander.expand` leaf 0.6%→1.7% (B0→V, +6 samples of 543): directionally consistent with
   one extra call layer (`appendActiveStatesTo`), quantitatively negligible.
+
+## Server profiles (H3, C1 vs C1P2, 4-pair subset, 50/42 samples — thin, directional only)
+
+- Leaf shapes match (signpost/store dominance, no bucket anomaly). `FoundNodes.getFromLevel`
+  leaf 4.0% (C1) → 7.1% (C1P2): directionally consistent with canonical linear-lookup cost on
+  the lookup-saturated H3 traffic, corroborating (not proving) the ~6% H3-C1P2 tax mechanism.
+  Sample counts are too small for attribution confidence; the 10-fork repeatability
+  (23/23 pairs, both order groups) carries the claim, not these frames.
 
 ## Amdahl reading for the verdict
 

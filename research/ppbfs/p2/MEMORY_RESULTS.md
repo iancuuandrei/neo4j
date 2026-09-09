@@ -62,4 +62,6 @@ C1's long-lived canonical store and C4's retired index keep one dense `Object[S]
 P2 shrinks each to `Object[cap(k)]` with zero lifecycle change (C1 `closeLevel` and C4
 transfer/merge/close semantics preserved and covered by their own test suites). Measured
 C1→C1+P2: 2.6× (S=255), 4.2× (S=507), 1.47× (star). C4→C4+P2: identical ratios. This is the
-quantified "P2 recovers P1's allocation cost" result.
+quantified "P2 recovers P1's allocation cost" result. Replacement-array accounting on
+growth/merge/promotion paths is covered by exact-tracker unit tests (`StateBucketTest`:
+growth releases exactly once; C4 transfer/close covered by `FoundNodesDeferredIndexTest`).

@@ -1,8 +1,9 @@
 # P2 end-to-end results (`MEASURED`)
 
-Method: `P2TimingScreen.scala` (committed on the V branch; SHA-256 `60C2A2…` identical in all
-six comparison worktrees), warmed (5 runs), 9 timed runs per workload per fork, seeded workload
-shuffle, oracle self-consistency per fork (rows + sorted-multiset SHA-256 must match across all
+Method: `P2TimingScreen.scala` (harness `60C2A2…` for the base matrix, `5513DBFD…` for all
+final-qualification rigs — each byte-identical in all execution worktrees at measurement time),
+warmed (5 runs), 9 timed runs per workload per fork, seeded workload shuffle, oracle
+self-consistency per fork (rows + sorted-multiset SHA-256 must match across all
 14 runs or the fork FAILS), cross-variant oracle equality checked by the analyst.
 Unit rig: 10 fresh-JVM paired forks, randomized variant order, per-fork medians → paired ratios →
 geomean + 10k-bootstrap 95% CI. Primary ratio = B0/V (>1 = V faster). Equivalence band ±5%.
@@ -45,9 +46,10 @@ from clean f213 vs V `E6284F…`). All paired result sets matched (lengths multi
   NON-INFERIOR** (±5% TOST). H3 is neutral, not a regression. JFR pair on the subset shows
   signpost/propagation dominance with matching profile shapes (see `JFR_ANALYSIS.md`).
 - **LiveJournal shallow** (high fanout, 24 pairs, 6 forks with throwaway cache warmup, measured
-  3:3 order balance): **0.963 [0.856, 1.083], INCONCLUSIVE-vs-band but centered near 1.0**.
-  Per-pair ratios scatter 0.85–1.05 with ±40% fork spreads on 3–13 ms queries: the HTTP/ms noise
-  floor, not a bucket effect (unit star2000 lookup-stress with g/i=64 is neutral at 1.022).
+  3:3 order balance): **0.963 [0.856, 1.083]: no material regression detected**
+  (CI wider than the ±5% band on 3–13 ms queries over HTTP; per-pair ratios scatter 0.85–1.05
+  with ±40% fork spreads — the measurement floor, not a bucket effect; unit star2000
+  lookup-stress at g/i=64 is neutral at 1.022).
   No high-fanout regression evidenced; worst pair 0.853 with [0.748, 0.978] single-slice spread.
 
 ## Correctness ledger
@@ -55,7 +57,38 @@ from clean f213 vs V `E6284F…`). All paired result sets matched (lengths multi
 - New `StateBucketTest`: 9/9 (empty/single/order/missing/dup/conflict/growth/memory/close).
 - Existing suites on V: full `runtime-util` module 530 tests, 0 failures (5 pre-existing `ignore`s);
   PPBFS differential suites (naive-DFS `assertExpected`) green.
-- Cross-implementation oracles: B0/V/C1/C1+P2/C4/C4P2 identical on 9 workloads; server H3+LJ
-  result sets matched on 47 pairs × forks.
-- `NOT RUN`: roadNet/gMark/cit-Patents/as-Skitter/web-Stanford server runs (time-boxed; surveyed
-  external queries there compile to the same small-S regime already covered by H3/LJ neutrals).
+- Cross-implementation oracles: B0/V/C1/C1+P2/C4/C4P2 identical on all unit workloads (incl. all
+  large-k/hostile families); server result sets matched on H3 (B0/V/C1/C1P2/C4/C4P2), LJ (B0/V),
+  roadNet-PA (C1/C1P2, C4/C4P2).
+- roadNet/gMark/cit-Patents/as-Skitter/web-Stanford coverage: roadNet-PA done (above);
+  gMark/cit-Patents/as-Skitter/web-Stanford server runs remain `NOT RUN` (time-boxed; surveyed
+  queries there compile to the same small-S regime already covered by H3/LJ neutrals).
+
+## Final qualification, Part I — large-k falsification (B0/V, 10–20 forks)
+
+Telemetry-qualified family (S/k/span/g/i measured per bucket): k=32 (S=34/258), k=64 (S=66/514),
+k=128 (S=130/1026), k=256 (S=258), hostile F=8 fanout (per-bucket g/i ≈52/576/1150).
+S≫k@256 NOT RUN (monotonicity argument recorded in `FINAL_QUALIFICATION.md`).
+
+| Workload | max k | per-bucket g/i | Geomean | 95% CI | Oracle |
+| --- | ---: | ---: | --- | --- | --- |
+| k32-s34 / k32-s258 | 32 | ~38 | 0.978 / 1.036 | [0.900, 1.053] / [0.944, 1.143] | match |
+| k64-s66 / k64-s514 | 64 | ~77 | 0.977 / 0.991 | [0.941, 1.010] / [0.957, 1.025] | match |
+| k128-s130 / k128-s1026 | 128 | ~154 | 0.970 / 0.941 | [0.915, 1.033] / [0.856, 1.033] | match |
+| k256-s258 | 256 | ~307 | 0.943 | [0.844, 1.052] | match |
+| hostile-k32-f8 | 32 | ~52 | 1.001 | [0.923, 1.091] | match |
+| hostile-k64-f8 (n=20) | 64 | ~576 | 0.965 | [0.914, 1.021] | match |
+| hostile-k128-f8 | 128 | ~1150 | 0.996 | [0.967, 1.022] | match |
+
+No CI excludes parity low-side; worst point 0.925 moved to 0.965 at n=20. Fixed-V survives;
+no adaptive branch created.
+
+## Final qualification, Part II — P1 pairs (10 forks each + servers)
+
+Unit C1/C1P2 (ratio >1 favors C1P2): chain255 1.514 [1.369, 1.624], chain509 1.097
+[1.082, 1.114], h3analog-bidi2 1.080 [0.996, 1.172], six others neutral (0.965–1.000).
+Unit C4/C4P2: chain255 1.500 [1.360, 1.605], chain509 1.118 [1.065, 1.204], rest neutral
+(0.980–1.101). All oracles match. Full tables in `FINAL_QUALIFICATION.md`.
+Servers: roadNet-PA C1-pair 0.973 [0.913, 1.037] (772-pair 1.043); roadNet-772 C4-pair pooled-6
+≈0.949 (bounded, no destruction); H3 C1-pair pooled-10 0.9389, H3 C4-pair pooled-10 0.9701
+(order-balanced; the disclosed ~3–6% canonical-lookup tax). All server result sets matched.
