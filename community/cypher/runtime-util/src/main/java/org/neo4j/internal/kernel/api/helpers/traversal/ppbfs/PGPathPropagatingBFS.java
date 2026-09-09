@@ -119,6 +119,15 @@ public final class PGPathPropagatingBFS<Row> extends PrefetchingIterator<Row> im
 
         this.sourceNodeState = new NodeState(globalState, source, startState, intoTarget, tracker.lengths());
 
+        // P7: post-saturation memoized completion only applies where the tracer keeps running
+        // after a target saturates (unbound/multi-target searches). Bound intoTarget searches
+        // terminate globally on saturation, so force their tracing bit-identical with zero new tax.
+        // (Only ever disables: a PathTracer constructed with P7 already disabled, e.g. in tests,
+        // stays disabled for unbound searches too.)
+        if (intoTarget != NO_SUCH_ENTITY) {
+            pathTracer.setP7Enabled(false);
+        }
+
         pathTracer.reset();
 
         this.hooks.newRow(source);

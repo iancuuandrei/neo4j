@@ -91,4 +91,19 @@ P1 design Neo4j prefers (extraction deltas ready for both `contrib` branches). N
 upstream PR is recommended. Research side complete; the remaining question is which P1
 architecture, if either, Neo4j's internal benchmarks prefer.
 
-Entry points: `p2/FINAL_REPORT.md`, `p2/FINAL_QUALIFICATION.md`, `MAINTAINER_HANDOFF.md`.
+## P7 post-saturation bookkeeping (WALK-only)
+
+After a target saturates, `PathTracer` keeps enumerating every represented path
+combination purely for bookkeeping side effects. P7 replaces that residual
+enumeration with memoized completion over compact `(NodeState, sourceLength)`
+states — WALK only, unbound searches only. Bound `intoTarget` searches terminate
+globally on saturation (no residual work); TRAIL/ACYCLIC validity depends on
+full path history and keeps exhaustive tracing. Verdict: YES — workload-specific
+but worthwhile (WALK-only). Evidence: Walk repeated-diamond d=6, 948 baseline
+pushes vs 200 P7 pushes (4.74x); `PGPathPropagatingBFSP7Test` differential
+(rows/schedules/target-signposts/prunes equal on-off; bound/Trail zero delta);
+PPBFS suites 134/134 green. Base: `736cad02a36bb4a0d32c1064f44768339c814269`
+(upstream/2026.08). Open: query-level/JFR timing, maintainer review (no
+issue/PR yet).
+
+Entry points: `p2/FINAL_REPORT.md`, `p2/FINAL_QUALIFICATION.md`, `p7/FINAL_REPORT.md`, `p7/FINAL_QUALIFICATION.md`, `MAINTAINER_HANDOFF.md`.

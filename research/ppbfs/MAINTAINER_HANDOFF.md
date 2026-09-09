@@ -74,6 +74,20 @@ archive/ppbfs-lab-pre-p1-p2-status-sync-2026-09-09   pre-sync P1 state (immutabl
 > side is complete; the remaining question is which P1 architecture, if either, Neo4j's
 > internal benchmarks prefer.
 
+## 9. P7 follow-up — WALK post-saturation bookkeeping
+
+After a target saturates, `PathTracer` still enumerates every represented path
+combination to establish bookkeeping. P7 memoizes that residual work over compact
+`(NodeState, sourceLength)` states — WALK-only (TRAIL/ACYCLIC validity is
+history-dependent), unbound-only (bound searches terminate globally on
+saturation). Measured on Walk repeated diamonds d=6: 948 baseline pushes vs 200
+P7 pushes (4.74x); `PGPathPropagatingBFSP7Test` proves identical rows, schedules,
+target-signpost registrations and prunes, with bound/Trail zero-delta controls.
+Branch: `contrib/ppbfs-walk-post-saturation-bookkeeping` (base
+`736cad02a36bb4a0d32c1064f44768339c814269`, upstream/2026.08). No upstream
+issue/PR yet; end-to-end/JFR timing pending. Evidence: `p7/FINAL_REPORT.md`,
+`p7/FINAL_QUALIFICATION.md`.
+
 ---
 
 ## Prior C4-only handoff sections (preserved)

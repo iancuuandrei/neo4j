@@ -27,6 +27,7 @@ with `common/scripts/analyze_paired_runs.py`.
 - `state-index/`: direct/adaptive product-state repository experiments.
 - `frontier-selection/`: future bidirectional work-selection experiments.
 - `transition-dispatch/`: future NFA transition-dispatch experiments.
+- `p7/`: post-saturation bookkeeping investigation (WALK-only production candidate).
 - `future/`: scoped placeholders only after an investigation is accepted.
 
 Large downloads, imported databases, distributions, profiles, and raw logs live
@@ -57,6 +58,10 @@ P2
  ├─ C1+P2 (research/ppbfs-p2-c1-interaction)
  ├─ C4+P2 (research/ppbfs-p2-c4-interaction)
  └─ final verdict B (p2/FINAL_REPORT.md, p2/FINAL_QUALIFICATION.md)
+
+P7
+ - WALK post-saturation bookkeeping (contrib/ppbfs-walk-post-saturation-bookkeeping)
+ - final verdict YES, workload-specific WALK-only (p7/FINAL_REPORT.md, p7/FINAL_QUALIFICATION.md)
 ```
 
 The research chain below documents the P1 stages (kept for provenance; stage verdicts were
