@@ -19,6 +19,8 @@ ap.add_argument("--runs", default="D:/dev/neo4j-research/artifacts/ppbfs/runs/p2
 ap.add_argument("--forks", type=int, default=None)
 ap.add_argument("--boot", type=int, default=10000)
 ap.add_argument("--seed", type=int, default=20260908)
+ap.add_argument("--a", default="B0")
+ap.add_argument("--b", default="V")
 args = ap.parse_args()
 
 # variant,fork -> workload -> list of elapsed
@@ -47,12 +49,12 @@ for path in glob.glob(os.path.join(args.runs, "screen-*.csv")):
         oracle[(variant, fork, r["workload"])] = (r["rows"], r["hash"])
         tracked[(variant, fork, r["workload"])] = (r.get("repeats", "?"), int(r["tracked_bytes"]))
 
-forks_b0 = sorted({f for (v, f) in cell if v == "B0"})
-forks_v = sorted({f for (v, f) in cell if v == "V"})
-common = [f for f in forks_b0 if f in forks_v]
+forks_a = sorted({f for (v, f) in cell if v == args.a})
+forks_b = sorted({f for (v, f) in cell if v == args.b})
+common = [f for f in forks_a if f in forks_b]
 if args.forks:
     common = common[: args.forks]
-print(f"# paired forks: {len(common)} {common}")
+print(f"# paired forks ({args.a}/{args.b}): {len(common)} {common}")
 
 rng = random.Random(args.seed)
 workloads = sorted({w for (_, _), d in cell.items() for w in d})
@@ -60,15 +62,15 @@ print("workload,n,geomean,ci_lo,ci_hi,median_ratio,cv,oracle_ok,B0_trk,V_trk")
 for w in workloads:
     ratios, oks, tb, tv = [], True, [], []
     for f in common:
-        if w not in cell[("B0", f)] or w not in cell[("V", f)]:
+        if w not in cell[(args.a, f)] or w not in cell[(args.b, f)]:
             continue  # fork lacks this workload; coverage is shown by n (not an oracle failure)
-        b = statistics.median(cell[("B0", f)][w])
-        v = statistics.median(cell[("V", f)][w])
+        b = statistics.median(cell[(args.a, f)][w])
+        v = statistics.median(cell[(args.b, f)][w])
         ratios.append(b / v)
-        o = oracle.get(("B0", f, w)) == oracle.get(("V", f, w))
+        o = oracle.get((args.a, f, w)) == oracle.get((args.b, f, w))
         oks = oks and o
-        tb.append(tracked[("B0", f, w)][1])
-        tv.append(tracked[("V", f, w)][1])
+        tb.append(tracked[(args.a, f, w)][1])
+        tv.append(tracked[(args.b, f, w)][1])
     if not ratios:
         print(f"{w},0,NA,NA,NA,NA,NA,{oks},NA,NA")
         continue
