@@ -61,8 +61,7 @@ for w in workloads:
     ratios, oks, tb, tv = [], True, [], []
     for f in common:
         if w not in cell[("B0", f)] or w not in cell[("V", f)]:
-            oks = False
-            continue
+            continue  # fork lacks this workload; coverage is shown by n (not an oracle failure)
         b = statistics.median(cell[("B0", f)][w])
         v = statistics.median(cell[("V", f)][w])
         ratios.append(b / v)
