@@ -30,19 +30,31 @@ regimes the query survives ≈2.5× tighter `dbms.memory.transaction` style budg
 operational form of the win (deep/large searches that today trip the limiter), not a
 resident-memory claim.
 
-## 3. Allocation behavior (`MEASURED` via JFR allocation samples + tracked deltas)
+## 3. Allocation behavior (`MEASURED` via JFR; single recordings — descriptive, no CI)
 
-Server H3 allocation profile: `Object[]` dominates B0 samples (283; includes per-bucket
-`Object[S]` arrays); `HeapTrackingArrayList` 42 (one per bucket). V replaces each `Object[S]`
-with `Object[cap(k)]` (cap from 4, geometric) and reports 3,132 vs 3,327 allocation samples on
-the same recording. Unit-timing deltas beyond the Amdahl scan bound (chain255 +17% vs ≈6% scan
-bound) are consistent with allocation/GC relief; no separate GC-pause claim is made (pause
-distributions overlap — recorded but not promoted).
+Thread-total allocated bytes (`jdk.ThreadAllocationStatistics`, last snapshot per thread;
+extraction: `scripts/gc_alloc.py`):
 
-## 4. GC behavior
+| Recording (identical work) | B0 | V | Δ |
+| --- | ---: | ---: | --- |
+| unit chain2000-s255 ×150 searches | 1,231.5 MB | 998.9 MB | −18.9% |
+| server H3 full manifest ×10 reps | 3,908.5 MB | 3,700.9 MB | −5.3% (diluted: engine/HTTP/pagecache dominate server allocation) |
 
-`NOT PROMOTED`: young-GC counts overlap across variants in all recordings; no GC-time win is
-claimed. The latency effect is attributed to scan + allocation-rate relief, bounded by profiles.
+Allocation-sample classes (B0 chain255): `Object[]` #1 (283 — includes per-bucket `Object[S]`
+arrays), `HeapTrackingArrayList` (42 — one per bucket), then `NodeState`/`Lengths`. V replaces
+each `Object[S]` with `Object[cap(k)]` and reports fewer allocation samples on the identical
+server recording (3,132 vs 3,327). The unit-timing deltas beyond the Amdahl scan bound
+(chain255 +17% vs ≈6% scan-only) are consistent with this allocation-rate relief.
+
+## 4. GC behavior (single recordings — observed, not promoted to a claim)
+
+| Recording | Pauses (B0 → V) | Total pause ms (B0 → V) | Max pause ms (B0 → V) |
+| --- | --- | --- | --- |
+| unit chain255 ×150 | 30 → 30 | 190.5 → 172.0 | 19.2 → 16.4 |
+| server H3 full | 5 → 3 | 43.5 → 22.5 | 11.3 → 10.1 |
+
+Directionally favors V; with one recording per variant no significance is claimed. No GC-time
+win is part of the verdict — the latency effect is attributed to scan + allocation-rate relief.
 
 ## C1/C4 resource answer (for `P1_INTERACTION.md`)
 
