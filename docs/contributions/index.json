@@ -24,7 +24,7 @@
       "branchUrl": "https://github.com/iancuuandrei/neo4j/tree/contrib/ppbfs-walk-post-saturation-bookkeeping",
       "researchBranch": "research/ppbfs-lab",
       "researchBranchUrl": "https://github.com/iancuuandrei/neo4j/tree/research/ppbfs-lab",
-      "upstreamIssue": null,
+      "upstreamIssue": "neo4j/neo4j#13968",
       "upstreamPR": null,
       "mergedCommit": null,
       "validatedImpact": "Walk repeated-diamond d=6: 948 to 200 trace pushes (4.74x); identical rows, schedules, target-signpost registrations; bound/Trail zero delta; end-to-end/JFR pending"
