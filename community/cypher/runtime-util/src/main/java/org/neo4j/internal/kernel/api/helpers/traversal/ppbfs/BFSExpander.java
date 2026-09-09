@@ -174,11 +174,7 @@ final class BFSExpander implements AutoCloseable {
             var statesById = pair.getTwo();
 
             statesList.clear();
-            for (var nodeState : statesById) {
-                if (nodeState != null) {
-                    statesList.add(nodeState.state());
-                }
-            }
+            statesById.appendActiveStatesTo(statesList);
 
             hooks.expandNode(dbNodeId, statesList, direction);
 

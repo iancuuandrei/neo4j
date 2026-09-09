@@ -37,10 +37,10 @@ import org.neo4j.util.Preconditions;
  *
  * To enable us to group nodes by their data graph id, we keep NodeStates in something similar to a two dimensional
  * hash map. For example, to get the node (nodeId=2, stateId=3) from the currentLevel, we'd call
- * currentLevel.get(2).get(3). The fact that stateId's are sequential allows us to let the type of currentLevel
- * be HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>, so currentLevel.get(2) returns an array list,
- * where the NodeState corresponding to stateId=3 is stored at index 3. This may lead to over allocation and sparse
- * arrays for certain NFA's, so we may want to revise this in the future if benchmarks tell us to.
+ * currentLevel.get(2).get(3). The type of currentLevel is
+ * HeapTrackingLongObjectHashMap<StateBucket>, so currentLevel.get(2) returns the bucket holding only the
+ * active states for that node in ascending state-id order, which avoids allocating and scanning one slot
+ * per NFA state for every visited node.
  *
  * We keep active nodes in two frontier collections using the indexing scheme above:
  *
@@ -56,17 +56,13 @@ import org.neo4j.util.Preconditions;
  * </pre>
  */
 public final class FoundNodes implements AutoCloseable {
-    private final HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
-            allStates; // nodeId x stateId -> NodeState
+    private final HeapTrackingLongObjectHashMap<StateBucket> allStates; // nodeId x stateId -> NodeState
 
-    private HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
-            forwardFrontier; // nodeId x stateId -> NodeState
-    private HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
-            backwardFrontier; // nodeId x stateId -> NodeState
+    private HeapTrackingLongObjectHashMap<StateBucket> forwardFrontier; // nodeId x stateId -> NodeState
+    private HeapTrackingLongObjectHashMap<StateBucket> backwardFrontier; // nodeId x stateId -> NodeState
 
     private BufferState bufferState = BufferState.CLOSED;
-    private HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
-            frontierBuffer; // nodeId x stateId -> NodeState
+    private HeapTrackingLongObjectHashMap<StateBucket> frontierBuffer; // nodeId x stateId -> NodeState
 
     private final MemoryTracker memoryTracker;
     private final SearchMode mode;
@@ -92,20 +88,18 @@ public final class FoundNodes implements AutoCloseable {
         Preconditions.checkState(bufferState == BufferState.OPEN, "NodeState added to closed buffer");
         var allStatesForNode = allStates.get(nodeState.id());
         if (allStatesForNode == null) {
-            allStatesForNode = HeapTrackingArrayList.newEmptyArrayList(nfaStateCount, memoryTracker);
+            allStatesForNode = new StateBucket(memoryTracker);
             allStates.put(nodeState.id(), allStatesForNode);
         }
-        var existing = allStatesForNode.get(nodeState.state().id());
-        Preconditions.checkState(
-                existing == null || existing == nodeState, "Attempted to replace canonical NodeState instance");
-        allStatesForNode.set(nodeState.state().id(), nodeState);
+        // StateBucket.put enforces the canonical-identity invariant internally.
+        allStatesForNode.put(nodeState);
 
         var nodeStates = frontierBuffer.get(nodeState.id());
         if (nodeStates == null) {
-            nodeStates = HeapTrackingArrayList.newEmptyArrayList(nfaStateCount, memoryTracker);
+            nodeStates = new StateBucket(memoryTracker);
             frontierBuffer.put(nodeState.id(), nodeStates);
         }
-        nodeStates.set(nodeState.state().id(), nodeState);
+        nodeStates.put(nodeState);
     }
 
     /** Look up a NodeState by its canonical product-state key. */
@@ -114,7 +108,7 @@ public final class FoundNodes implements AutoCloseable {
     }
 
     private NodeState getFromLevel(
-            HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> level, long nodeId, int stateId) {
+            HeapTrackingLongObjectHashMap<StateBucket> level, long nodeId, int stateId) {
         if (level.isEmpty()) {
             return null;
         }
@@ -152,12 +146,12 @@ public final class FoundNodes implements AutoCloseable {
         bufferState = BufferState.CLOSED;
     }
 
-    private static void closeLevel(HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> level) {
-        level.forEachValue(HeapTrackingArrayList::close);
+    private static void closeLevel(HeapTrackingLongObjectHashMap<StateBucket> level) {
+        level.forEachValue(StateBucket::close);
         level.close();
     }
 
-    public HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> frontier(TraversalDirection direction) {
+    public HeapTrackingLongObjectHashMap<StateBucket> frontier(TraversalDirection direction) {
         return switch (direction) {
             case FORWARD -> forwardFrontier;
             case BACKWARD -> backwardFrontier;
