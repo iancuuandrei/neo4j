@@ -154,6 +154,20 @@ class P2SparsityHarness extends RuntimeUtilTestSuite with PGPathPropagatingBFSTe
     (b.build(), source)
   }
 
+  /**
+   * Layered fanout graph for large-k falsification: source -> L0 (w nodes, complete) ->
+   * L1 (f nodes, complete bipartite). An L0 node reached in B branch states has k=B actives.
+   */
+  private def fanoutLayerGraph(w: Int, f: Int): (InMemoryGraph, Long) = {
+    val b = InMemoryGraph.builder
+    val source = b.node()
+    val l0 = (0 until w).map(_ => b.node())
+    val l1 = (0 until f).map(_ => b.node())
+    l0.foreach(m => b.rel(source, m))
+    for (m <- l0; n <- l1) b.rel(m, n)
+    (b.build(), source)
+  }
+
   // ---------- NFA builders ----------
 
   /** Linear chain NFA with 2*reps+3 states: s, (a,b)*reps unrolled, anon, t. */
@@ -178,7 +192,8 @@ class P2SparsityHarness extends RuntimeUtilTestSuite with PGPathPropagatingBFSTe
 
   /**
    * Parallel-branch NFA: s -e-> a_i -e-> f for B matching branches plus U non-matching
-   * branches on rel type 2 (absent from test graphs). S = 2 + 2*(B+U); depth-1 buckets hold k = B.
+   * branches on rel type 2 (absent from test graphs). Measured S = 2+B+U (one intermediate
+   * state per branch plus shared start/final); depth-1 buckets hold k = B.
    */
   private def branchNfa(matching: Int, nonMatching: Int): Nfa =
     nfa(s"branch-B${matching}U$nonMatching") { sb =>
@@ -318,6 +333,58 @@ class P2SparsityHarness extends RuntimeUtilTestSuite with PGPathPropagatingBFSTe
     val g = b.build()
     run("unidir-into-s31", g, nodes.head, repChainNfa(14),
       searchMode = SearchMode.Unidirectional, intoTarget = nodes.last)
+  }
+
+  // ---------- Part I large-k falsification (final qualification) ----------
+
+  test("p2 large-k k32 S34 (S approx k)") {
+    val (g, src) = fanoutLayerGraph(2, 2)
+    run("largek-k32-s34", g, src, branchNfa(32, 0))
+  }
+
+  test("p2 large-k k32 S258 (S much larger than k)") {
+    val (g, src) = fanoutLayerGraph(2, 2)
+    run("largek-k32-s258", g, src, branchNfa(32, 224))
+  }
+
+  test("p2 large-k k64 S66 (S approx k)") {
+    val (g, src) = fanoutLayerGraph(2, 2)
+    run("largek-k64-s66", g, src, branchNfa(64, 0))
+  }
+
+  test("p2 large-k k64 S514 (S much larger than k)") {
+    val (g, src) = fanoutLayerGraph(2, 2)
+    run("largek-k64-s514", g, src, branchNfa(64, 448))
+  }
+
+  test("p2 large-k k128 S130 (S approx k)") {
+    val (g, src) = fanoutLayerGraph(2, 2)
+    run("largek-k128-s130", g, src, branchNfa(128, 0))
+  }
+
+  test("p2 large-k k128 S1026 (S much larger than k)") {
+    val (g, src) = fanoutLayerGraph(2, 2)
+    run("largek-k128-s1026", g, src, branchNfa(128, 896))
+  }
+
+  test("p2 large-k k256 S258 (S approx k)") {
+    val (g, src) = fanoutLayerGraph(2, 2)
+    run("largek-k256-s258", g, src, branchNfa(256, 0))
+  }
+
+  test("p2 hostile k32 F8 (high exact-lookup pressure)") {
+    val (g, src) = fanoutLayerGraph(2, 8)
+    run("hostile-k32-f8", g, src, branchNfa(32, 0))
+  }
+
+  test("p2 hostile k64 F8 (high exact-lookup pressure)") {
+    val (g, src) = fanoutLayerGraph(2, 8)
+    run("hostile-k64-f8", g, src, branchNfa(64, 0))
+  }
+
+  test("p2 deep-repeat merge pressure (20x20 grid, 14-rel reach)") {
+    val (g, src) = gridGraph(20, 20)
+    run("grid-deep-merge-s31", g, src, repChainNfa(14), maxDepth = -1, k = 3)
   }
 
   /** Active ids {1,2,3,4}: four matching branches created adjacently. S = 18. */
