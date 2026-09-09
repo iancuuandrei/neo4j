@@ -191,11 +191,27 @@ class P2TimingScreen extends RuntimeUtilTestSuite with PGPathPropagatingBFSTestB
       // H3 analog: S=5, k=3, deep reconvergent diamond (lookup-heavy small-NFA regime)
       Workload("h3analog-s5", h3dia, h3Src, branchNfa(3, 0), repeats = 10),
       // H3 analog, bidirectional into-target with k=2 like the real H3 query
-      Workload("h3analog-bidi-s5", h3graph, h3source, branchNfa(3, 0),
-        k = 2, intoTarget = h3target, bidirectional = true, repeats = 10),
+      Workload(
+        "h3analog-bidi-s5",
+        h3graph,
+        h3source,
+        branchNfa(3, 0),
+        k = 2,
+        intoTarget = h3target,
+        bidirectional = true,
+        repeats = 10
+      ),
       // depth-matched bidi analog: 2-hop NFA reaches the bound target (rows>0)
-      Workload("h3analog-bidi2-s5", h3sgraph, h3ssource, branchNfa(3, 0),
-        k = 2, intoTarget = h3starget, bidirectional = true, repeats = 10),
+      Workload(
+        "h3analog-bidi2-s5",
+        h3sgraph,
+        h3ssource,
+        branchNfa(3, 0),
+        k = 2,
+        intoTarget = h3starget,
+        bidirectional = true,
+        repeats = 10
+      ),
       Workload("diamond-dense-s18", dia, diaSrc, branchNfa(16, 0), repeats = 10),
       Workload("tiny-chain500-s4", c500, c500Src, nfa("s" |> ("a" --> "b") |> "t"), repeats = 30)
     )
@@ -269,7 +285,8 @@ class P2TimingScreen extends RuntimeUtilTestSuite with PGPathPropagatingBFSTestB
       val ref = (all.head._2, all.head._4)
       assert(
         all.forall { case (_, rows, _, hash) => (rows, hash) == ref },
-        s"oracle mismatch within $variant/${w.id}: $all")
+        s"oracle mismatch within $variant/${w.id}: $all"
+      )
       timed.zipWithIndex.foreach { case ((ns, rows, tracked, hash), i) =>
         sb.append(s"$variant,$fork,${w.id},$s,${w.repeats},$i,$ns,$rows,$tracked,$hash\n")
       }

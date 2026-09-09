@@ -19,7 +19,6 @@
  */
 package org.neo4j.internal.kernel.api.helpers.traversal.ppbfs;
 
-import org.neo4j.collection.trackable.HeapTrackingArrayList;
 import org.neo4j.collection.trackable.HeapTrackingLongObjectHashMap;
 import org.neo4j.memory.MemoryTracker;
 import org.neo4j.util.Preconditions;
@@ -107,8 +106,7 @@ public final class FoundNodes implements AutoCloseable {
         return getFromLevel(allStates, nodeId, stateId);
     }
 
-    private NodeState getFromLevel(
-            HeapTrackingLongObjectHashMap<StateBucket> level, long nodeId, int stateId) {
+    private NodeState getFromLevel(HeapTrackingLongObjectHashMap<StateBucket> level, long nodeId, int stateId) {
         if (level.isEmpty()) {
             return null;
         }
