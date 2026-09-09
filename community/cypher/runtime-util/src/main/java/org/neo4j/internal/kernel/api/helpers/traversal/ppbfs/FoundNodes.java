@@ -37,10 +37,10 @@ import org.neo4j.util.Preconditions;
  *
  * To enable us to group nodes by their data graph id, we keep NodeStates in something similar to a two dimensional
  * hash map. For example, to get the node (nodeId=2, stateId=3) from the currentLevel, we'd call
- * currentLevel.get(2).get(3). The fact that stateId's are sequential allows us to let the type of currentLevel
- * be HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>, so currentLevel.get(2) returns an array list,
- * where the NodeState corresponding to stateId=3 is stored at index 3. This may lead to over allocation and sparse
- * arrays for certain NFA's, so we may want to revise this in the future if benchmarks tell us to.
+ * currentLevel.get(2).get(3). The type of currentLevel is
+ * HeapTrackingLongObjectHashMap<StateBucket>, so currentLevel.get(2) returns the bucket holding only the
+ * active states for that node in ascending state-id order, which avoids allocating and scanning one slot
+ * per NFA state for every visited node.
  *
  * We keep all of our nodes in three disjoint collections, all of them adhere to the same indexing scheme as
  * explained above for currentLevel:
@@ -73,20 +73,16 @@ import org.neo4j.util.Preconditions;
 public final class FoundNodes implements AutoCloseable {
     static final int HISTORY_SIZE_BEFORE_INDEXING = 8;
 
-    private final HeapTrackingArrayList<HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>>
+    private final HeapTrackingArrayList<HeapTrackingLongObjectHashMap<StateBucket>>
             history; // frozen after indexing: levelDepth x nodeId x stateId -> NodeState
 
-    private HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
-            retiredIndex; // nodeId x stateId -> NodeState
+    private HeapTrackingLongObjectHashMap<StateBucket> retiredIndex; // nodeId x stateId -> NodeState
 
-    private HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
-            forwardFrontier; // nodeId x stateId -> NodeState
-    private HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
-            backwardFrontier; // nodeId x stateId -> NodeState
+    private HeapTrackingLongObjectHashMap<StateBucket> forwardFrontier; // nodeId x stateId -> NodeState
+    private HeapTrackingLongObjectHashMap<StateBucket> backwardFrontier; // nodeId x stateId -> NodeState
 
     private BufferState bufferState = BufferState.CLOSED;
-    private HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>>
-            frontierBuffer; // nodeId x stateId -> NodeState
+    private HeapTrackingLongObjectHashMap<StateBucket> frontierBuffer; // nodeId x stateId -> NodeState
 
     private final MemoryTracker memoryTracker;
     private final SearchMode mode;
@@ -114,13 +110,11 @@ public final class FoundNodes implements AutoCloseable {
         Preconditions.checkState(bufferState == BufferState.OPEN, "NodeState added to closed buffer");
         var nodeStates = frontierBuffer.get(nodeState.id());
         if (nodeStates == null) {
-            nodeStates = HeapTrackingArrayList.newEmptyArrayList(nfaStateCount, memoryTracker);
+            nodeStates = new StateBucket(memoryTracker);
             frontierBuffer.put(nodeState.id(), nodeStates);
         }
-        var existing = nodeStates.get(nodeState.state().id());
-        Preconditions.checkState(
-                existing == null || existing == nodeState, "Attempted to replace canonical NodeState instance");
-        nodeStates.set(nodeState.state().id(), nodeState);
+        // StateBucket.put enforces the canonical-identity invariant internally.
+        nodeStates.put(nodeState);
     }
 
     /** Look up a NodeState. O(N) wrt history length */
@@ -159,7 +153,7 @@ public final class FoundNodes implements AutoCloseable {
     }
 
     private NodeState getFromLevel(
-            HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> level, long nodeId, int stateId) {
+            HeapTrackingLongObjectHashMap<StateBucket> level, long nodeId, int stateId) {
         if (level.isEmpty()) {
             return null;
         }
@@ -197,7 +191,7 @@ public final class FoundNodes implements AutoCloseable {
         bufferState = BufferState.CLOSED;
     }
 
-    private void retire(HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> retiringFrontier) {
+    private void retire(HeapTrackingLongObjectHashMap<StateBucket> retiringFrontier) {
         if (!indexingRetiredFrontiers
                 && history.size() >= HISTORY_SIZE_BEFORE_INDEXING
                 && retiringFrontier.notEmpty()) {
@@ -232,21 +226,11 @@ public final class FoundNodes implements AutoCloseable {
         retiringFrontier.close();
     }
 
-    private static void mergeBuckets(
-            HeapTrackingArrayList<NodeState> existing, HeapTrackingArrayList<NodeState> incoming) {
-        Preconditions.checkState(existing.size() == incoming.size(), "Cannot merge incompatible state buckets");
-        for (int stateId = 0; stateId < incoming.size(); stateId++) {
-            var incomingState = incoming.get(stateId);
-            if (incomingState == null) {
-                continue;
-            }
-            var existingState = existing.get(stateId);
-            Preconditions.checkState(
-                    existingState == null || existingState == incomingState,
-                    "Attempted to replace canonical NodeState instance");
-            if (existingState == null) {
-                existing.set(stateId, incomingState);
-            }
+    private static void mergeBuckets(StateBucket existing, StateBucket incoming) {
+        // Compact buckets merge over occupied states only instead of scanning all S slots.
+        // StateBucket.put enforces the canonical-identity invariant per state.
+        for (var incomingState : incoming) {
+            existing.put(incomingState);
         }
     }
 
@@ -258,11 +242,11 @@ public final class FoundNodes implements AutoCloseable {
         return history.size();
     }
 
-    HeapTrackingArrayList<NodeState> retiredBucket(long nodeId) {
+    StateBucket retiredBucket(long nodeId) {
         return retiredIndex == null ? null : retiredIndex.get(nodeId);
     }
 
-    public HeapTrackingLongObjectHashMap<HeapTrackingArrayList<NodeState>> frontier(TraversalDirection direction) {
+    public HeapTrackingLongObjectHashMap<StateBucket> frontier(TraversalDirection direction) {
         return switch (direction) {
             case FORWARD -> forwardFrontier;
             case BACKWARD -> backwardFrontier;
