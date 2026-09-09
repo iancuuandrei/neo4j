@@ -16,6 +16,20 @@
       "validatedImpact": "NO-GO: C1, C2, and C3 fail the 92 MiB transaction-memory gate that baseline passes"
     },
     {
+      "slug": "ppbfs-walk-post-saturation-bookkeeping",
+      "title": "PPBFS WALK post-saturation bookkeeping",
+      "area": "StatefulShortestPath / PPBFS",
+      "status": "candidate",
+      "branch": "contrib/ppbfs-walk-post-saturation-bookkeeping",
+      "branchUrl": "https://github.com/iancuuandrei/neo4j/tree/contrib/ppbfs-walk-post-saturation-bookkeeping",
+      "researchBranch": "research/ppbfs-lab",
+      "researchBranchUrl": "https://github.com/iancuuandrei/neo4j/tree/research/ppbfs-lab",
+      "upstreamIssue": null,
+      "upstreamPR": null,
+      "mergedCommit": null,
+      "validatedImpact": "Walk repeated-diamond d=6: 948 to 200 trace pushes (4.74x); identical rows, schedules, target-signpost registrations; bound/Trail zero delta; end-to-end/JFR pending"
+    },
+    {
       "slug": "ppbfs-frontier-work-selection",
       "title": "PPBFS frontier work selection",
       "area": "StatefulShortestPath / PPBFS",

@@ -12,6 +12,7 @@ stay reviewable.
 | Contribution | Area | Status | Headline impact | Technical write-up | Implementation | Upstream |
 | --- | --- | --- | --- | --- | --- | --- |
 | Direct PPBFS product-state lookup | StatefulShortestPath / PPBFS | **Maintainer discussion warranted** | 4.373x PA deep; 5.289x CA deep; small measured memory/allocation trade-off | [Case study](docs/contributions/ppbfs-direct-state-index.md) | [Clean branch](https://github.com/iancuuandrei/neo4j/tree/contrib/ppbfs-direct-state-index) · [Research PR](https://github.com/iancuuandrei/neo4j/pull/1) | Not submitted upstream |
+| PPBFS WALK post-saturation bookkeeping | StatefulShortestPath / PPBFS | **Candidate** | Walk repeated-diamond d=6: 948→200 trace pushes (4.74x); identical rows and propagation bookkeeping | [Case study](docs/contributions/ppbfs-walk-post-saturation-bookkeeping.md) | [Clean branch](https://github.com/iancuuandrei/neo4j/tree/contrib/ppbfs-walk-post-saturation-bookkeeping) | Not submitted upstream |
 | PPBFS frontier work selection | StatefulShortestPath / PPBFS | **Planned** | Not measured | [Case study](docs/contributions/ppbfs-frontier-work-selection.md) | Not created | Not submitted |
 | PPBFS transition dispatch | StatefulShortestPath / PPBFS | **Planned** | Not measured | [Case study](docs/contributions/ppbfs-transition-dispatch.md) | Not created | Not submitted |
 
