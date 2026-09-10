@@ -98,6 +98,20 @@
       "upstreamPR": "neo4j/neo4j#13972",
       "mergedCommit": null,
       "validatedImpact": "Exact #13937 E2E: baseline slotted ~0.86s vs pipelined ~8.4s; patched pipelined ~0.32-0.46s with slotted-identical plan; batch-size flip B=1 good vs B>=128 bad; unit red/green Batched->Volcano; targeted suites 67+67+3 green"
+    },
+    {
+      "slug": "13924-optional-count-hoist",
+      "title": "Fix repeated nested COUNT evaluation in optional matches",
+      "area": "Cypher planner / OPTIONAL MATCH",
+      "status": "PR Open",
+      "branch": "fix/13924-optional-count-hoist",
+      "branchUrl": "https://github.com/iancuuandrei/neo4j-contributions/tree/fix/13924-optional-count-hoist",
+      "researchBranch": "research/13924-2026.08",
+      "researchBranchUrl": "https://github.com/iancuuandrei/neo4j-contributions/tree/research/13924-2026.08",
+      "upstreamIssue": "neo4j/neo4j#13924",
+      "upstreamPR": "neo4j/neo4j#13973",
+      "mergedCommit": null,
+      "validatedImpact": "structural: nested COUNT evaluations 3,978 -> 18 by plan construction (no wall-clock claim); 17/17 new regression tests, planner/slotted/physical suites green, baseline failures unchanged"
     }
   ]
 }
