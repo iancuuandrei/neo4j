@@ -70,6 +70,20 @@
       "upstreamPR": null,
       "mergedCommit": null,
       "validatedImpact": "chain16 1.89x, chain64 1.92x, diamond 1.42x, tree b4/d6 5.49x, A-specific 1.47x; tax ~noise; existing FSP ~1.00x"
+    },
+    {
+      "slug": "community-pipelined-fallback-execution-model",
+      "title": "Execution model fix for unsupported runtime fallback",
+      "area": "Cypher planner / Community runtime fallback",
+      "status": "candidate",
+      "branch": "investigate/13937",
+      "branchUrl": "https://github.com/iancuuandrei/neo4j-contributions/tree/investigate/13937",
+      "researchBranch": null,
+      "researchBranchUrl": null,
+      "upstreamIssue": "neo4j/neo4j#13937",
+      "upstreamPR": "neo4j/neo4j#13972",
+      "mergedCommit": null,
+      "validatedImpact": "Exact #13937 E2E: baseline slotted ~0.86s vs pipelined ~8.4s; patched pipelined ~0.32-0.46s with slotted-identical plan; batch-size flip B=1 good vs B>=128 bad; unit red/green Batched->Volcano; targeted suites 67+67+3 green"
     }
   ]
 }
