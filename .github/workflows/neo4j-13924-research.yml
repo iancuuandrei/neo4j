@@ -1,0 +1,82 @@
+name: Neo4j 13924 research
+
+on:
+  push:
+    branches:
+      - research/13924-2026.08
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-build:
+    name: Build current 2026.08 runtime modules
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Check out exact research baseline
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Record baseline
+        run: |
+          mkdir -p artifacts/13924-source-build
+          git rev-parse HEAD | tee artifacts/13924-source-build/head.txt
+          git show -s --format=fuller HEAD | tee artifacts/13924-source-build/head-details.txt
+          java -version 2>&1 | tee artifacts/13924-source-build/java-version.txt
+          ./mvnw -version 2>&1 | tee artifacts/13924-source-build/maven-version.txt
+
+      - name: Build relevant Community Edition modules
+        run: |
+          set -o pipefail
+          ./mvnw -B -T1C -DskipTests \
+            -pl community/cypher/physical-planning,community/cypher/interpreted-runtime,community/cypher/slotted-runtime,community/cypher/cypher \
+            -am package 2>&1 | tee artifacts/13924-source-build/build.log
+
+      - name: Upload source-build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: neo4j-13924-source-build
+          path: artifacts/13924-source-build
+          if-no-files-found: warn
+          retention-days: 7
+
+  runtime-experiments:
+    name: Reproduce and instrument 13924
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Check out exact research baseline
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Run exact, reduced, ablation, scaling, JFR and file-open experiments
+        run: |
+          chmod +x .github/research/13924/run.sh
+          .github/research/13924/run.sh
+
+      - name: Upload runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: neo4j-13924-runtime-evidence
+          path: artifacts/13924
+          if-no-files-found: warn
+          retention-days: 7
