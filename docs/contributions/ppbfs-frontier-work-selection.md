@@ -42,5 +42,5 @@ Outcome: Planned research only
 
 ## Relevant links
 
-- [Shared PPBFS research branch](https://github.com/iancuuandrei/neo4j/tree/research/ppbfs-lab)
+- [Shared PPBFS research branch](https://github.com/iancuuandrei/neo4j-contributions/tree/research/ppbfs-lab)
 - [PPBFS benchmark methodology](../benchmarks/ppbfs-benchmark-suite.md)

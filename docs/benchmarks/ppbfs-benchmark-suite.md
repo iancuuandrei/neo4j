@@ -2,11 +2,12 @@
 
 ## Status
 
-**Reusable; direct-state-index qualification concluded.** Shared harnesses and evidence exist on
-[`research/ppbfs-lab`](https://github.com/iancuuandrei/neo4j/tree/research/ppbfs-lab),
-and the direct-state-index family stopped after every candidate failed the
-fixed-memory gate. Multi-topology work was intentionally not run after that
-decisive rejection.
+**Reusable; direct-state-index family qualified with a disclosed memory trade-off, with a
+deferred-indexing follow-up active.** Shared harnesses and evidence exist on
+[`research/ppbfs-lab`](https://github.com/iancuuandrei/neo4j-contributions/tree/research/ppbfs-lab).
+Multi-topology results exist for the C1 and C4 candidates (see the case studies);
+the strict identical-memory gate remains a disclosed trade-off, not a pass criterion
+met by the candidates.
 
 ## Philosophy
 
@@ -17,12 +18,17 @@ builds.
 
 ## Current baseline discipline
 
+PPBFS campaigns pin one exact baseline per study. The state-index campaigns used:
+
 ```text
 repository: neo4j/neo4j
 upstream branch: 2026.07
 baseline SHA: f213380f812b820a1b312e2ea52cb3d8f1931ccc
 primary JDK: Eclipse Temurin 21
 ```
+
+Later campaigns (WALK bookkeeping, P10, #13937) use upstream `2026.08` at
+`736cad02a36bb4a0d32c1064f44768339c814269`; each case study records its own baseline.
 
 Run metadata records baseline and variant SHAs, JDK/JVM, OS/CPU/RAM, configuration,
 dataset/query hashes, warmup, repetitions, timestamp, and exclusions.
@@ -31,10 +37,10 @@ dataset/query hashes, warmup, repetitions, timestamp, and exclusions.
 
 | Dataset | Purpose | Current preparation status |
 | --- | --- | --- |
-| SNAP roadNet-CA | Primary high-diameter stress graph | Downloaded; full corrected import/benchmark pending |
-| SNAP roadNet-PA | Independent high-diameter replication | Downloaded, imported, deterministic pairs persisted, initial runs complete |
-| SNAP web-Stanford | Directed reconvergent topology | Downloaded; import/benchmark pending |
-| SNAP as-Skitter | Low-diameter, high-fan-out negative control | Downloaded; import/benchmark pending |
+| SNAP roadNet-CA | Primary high-diameter stress graph | Downloaded, imported, benchmarked (state-index + C4 campaigns) |
+| SNAP roadNet-PA | Independent high-diameter replication | Downloaded, imported, deterministic pairs persisted, benchmarked (state-index + C4 campaigns) |
+| SNAP web-Stanford | Directed reconvergent topology | Downloaded, imported, benchmarked (WALK bookkeeping qualification) |
+| SNAP as-Skitter | Low-diameter, high-fan-out negative control | Downloaded, benchmarked (WALK bookkeeping qualification) |
 | LDBC SNB SF10 | Standardized property-graph/common-case regression | Not prepared |
 
 Checksums and inclusion reasons live in the research branch dataset catalog.
@@ -89,5 +95,6 @@ branch. Large raw runs, JFR recordings, stores, and distributions live in the
 external artifact hierarchy and are referenced by metadata/checksum rather than
 copied into portfolio documents.
 
-The direct-state-index case study records the final measured NO-GO and
-explicitly separates unrun broader qualification from executed proof.
+The direct-state-index case study records the measured results with the memory-gate
+trade-off explicitly disclosed; the deferred-indexing follow-up extends the same
+protocol.

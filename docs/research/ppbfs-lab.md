@@ -2,9 +2,10 @@
 
 ## Status
 
-**Active shared lab; direct-state-index experiment concluded.** Experimental
-code and local evidence exist; no PPBFS change from this lab has been proposed
-or accepted upstream.
+**Active shared lab.** The direct-state-index experiment graduated to a proposal
+([case study](../contributions/ppbfs-direct-state-index.md)) with a deferred-indexing
+follow-up active; WALK post-saturation bookkeeping is qualified from lab evidence.
+No PPBFS change from this lab has been accepted upstream.
 
 ## Scope
 
@@ -36,7 +37,7 @@ function or be reviewed without another.
 
 ## Shared infrastructure
 
-[`research/ppbfs-lab`](https://github.com/iancuuandrei/neo4j/tree/research/ppbfs-lab)
+[`research/ppbfs-lab`](https://github.com/iancuuandrei/neo4j-contributions/tree/research/ppbfs-lab)
 contains:
 
 - source audit and mathematical model;
@@ -54,7 +55,9 @@ but intentionally excluded from Git.
 
 | Experiment | Status | Contribution path |
 | --- | --- | --- |
-| Direct product-state lookup | Rejected at memory gate | [Case study](../contributions/ppbfs-direct-state-index.md) |
+| Direct product-state lookup | Proposed (memory-gate trade-off disclosed) | [Case study](../contributions/ppbfs-direct-state-index.md) |
+| Deferred product-state indexing | Proposed | [Case study](../contributions/ppbfs-deferred-state-index.md) |
+| WALK post-saturation bookkeeping | Proposed | [Case study](../contributions/ppbfs-walk-post-saturation-bookkeeping.md) |
 | Frontier work selection | Planned | [Case study](../contributions/ppbfs-frontier-work-selection.md) |
 | Transition dispatch | Planned | [Case study](../contributions/ppbfs-transition-dispatch.md) |
 

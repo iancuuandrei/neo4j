@@ -2,7 +2,8 @@
 
 ## Status
 
-**Maintainer discussion warranted; not submitted upstream.** The complete study is preserved in draft [research PR #1](https://github.com/iancuuandrei/neo4j/pull/1). A minimal review branch exists at [`contrib/ppbfs-direct-state-index`](https://github.com/iancuuandrei/neo4j/tree/contrib/ppbfs-direct-state-index), independently rooted at the exact upstream baseline.
+**Proposed; no upstream PR submitted.** The complete study is preserved in closed
+[research PR #1](https://github.com/iancuuandrei/neo4j-contributions/pull/1). A minimal review branch exists at [`contrib/ppbfs-direct-state-index`](https://github.com/iancuuandrei/neo4j-contributions/tree/contrib/ppbfs-direct-state-index), independently rooted at the exact upstream baseline (`2026.07`), with an open draft fork PR ([PR #2](https://github.com/iancuuandrei/neo4j-contributions/pull/2), explicitly not an upstream PR). Upstream discussion is open at [neo4j/neo4j#13966](https://github.com/neo4j/neo4j/issues/13966). A deferred-indexing follow-up is tracked separately ([ppbfs-deferred-state-index](ppbfs-deferred-state-index.md)).
 
 Final research classification: `GO — APPROACH NEO4J MAINTAINERS WITH MEASURED TRADE-OFF`.
 
@@ -55,15 +56,15 @@ C2/C3 remain preserved as non-selected comparators, not erased failures.
 
 ## Correctness and validation
 
-The clean branch contains only the production `FoundNodes` change and focused tests. Spotless passed. The focused run executed 76 tests with zero failures/errors and five existing skips. The full runtime-util module attempt was blocked by a Windows paging-file reservation failure in a parallel test JVM and is not claimed as PASS.
+The clean branch contains only the production `FoundNodes` change and focused tests. Spotless passed. The focused run executed 76 tests with zero failures/errors and five existing skips. A later full `community/cypher/runtime-util` run with `-DsequentialTests` executed 526 tests with zero failures/errors and five existing skips, superseding the earlier blocked parallel-JVM attempt (Windows paging-file reservation failure), which is retained only as provenance.
 
 ## Upstream posture
 
-No upstream issue or PR has been opened. The proposed first contact is a measured investigation asking whether the small query-memory headroom increase is acceptable and whether Neo4j prefers a different internal collection or ownership model.
+Upstream discussion [neo4j/neo4j#13966](https://github.com/neo4j/neo4j/issues/13966) (opened 2026-09-05) asks whether the small query-memory headroom increase is acceptable and whether Neo4j prefers a different internal collection or ownership model. No upstream PR has been opened.
 
 ## Links
 
-- [Final research report](https://github.com/iancuuandrei/neo4j/blob/research/ppbfs-lab/research/ppbfs/state-index/BENCHMARK_REPORT.md)
-- [Pareto analysis](https://github.com/iancuuandrei/neo4j/blob/research/ppbfs-lab/research/ppbfs/state-index/FINAL_PARETO_ANALYSIS.md)
-- [Memory trade-off](https://github.com/iancuuandrei/neo4j/blob/research/ppbfs-lab/research/ppbfs/state-index/MEMORY_TRADEOFF_ANALYSIS.md)
-- [Allocation/GC analysis](https://github.com/iancuuandrei/neo4j/blob/research/ppbfs-lab/research/ppbfs/state-index/ALLOCATION_GC_ANALYSIS.md)
+- [Final research report](https://github.com/iancuuandrei/neo4j-contributions/blob/research/ppbfs-lab/research/ppbfs/state-index/BENCHMARK_REPORT.md)
+- [Pareto analysis](https://github.com/iancuuandrei/neo4j-contributions/blob/research/ppbfs-lab/research/ppbfs/state-index/FINAL_PARETO_ANALYSIS.md)
+- [Memory trade-off](https://github.com/iancuuandrei/neo4j-contributions/blob/research/ppbfs-lab/research/ppbfs/state-index/MEMORY_TRADEOFF_ANALYSIS.md)
+- [Allocation/GC analysis](https://github.com/iancuuandrei/neo4j-contributions/blob/research/ppbfs-lab/research/ppbfs/state-index/ALLOCATION_GC_ANALYSIS.md)

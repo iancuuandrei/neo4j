@@ -2,12 +2,12 @@
 
 ## Status
 
-**Qualified; upstream issue [neo4j/neo4j#13969](https://github.com/neo4j/neo4j/issues/13969) open, no PR submitted.** Clean implementation branch:
+**Upstream PR [neo4j/neo4j#13970](https://github.com/neo4j/neo4j/pull/13970) open (base `2026.08`) for upstream issue [neo4j/neo4j#13969](https://github.com/neo4j/neo4j/issues/13969).** Clean implementation branch:
 [`contrib/ssp-to-fsp-node-groups`](https://github.com/iancuuandrei/neo4j-contributions/tree/contrib/ssp-to-fsp-node-groups),
 independently rooted at upstream `2026.08` (`736cad02a36bb4a0d32c1064f44768339c814269`).
 Research branch:
 [`research/ssp-to-fsp-p10`](https://github.com/iancuuandrei/neo4j-contributions/tree/research/ssp-to-fsp-p10).
-Research complete; implementation qualified; contribution published; upstream issue opened; PR not submitted.
+Research complete; implementation qualified; contribution published; upstream issue opened; upstream PR opened 2026-09-09.
 
 ## Problem
 
@@ -58,4 +58,4 @@ Paired fresh-JVM measurements, same query/data/params/runtime, SSP via
 ## Status
 
 Production implementation qualified on Neo4j 2026.08. Upstream:
-neo4j/neo4j#13969.
+issue neo4j/neo4j#13969, PR neo4j/neo4j#13970 (open).

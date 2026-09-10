@@ -7,15 +7,16 @@ request.
 ## Repository identity and remotes
 
 ```text
-personal fork: iancuuandrei/neo4j
+personal fork: iancuuandrei/neo4j-contributions
 official upstream: neo4j/neo4j
 origin: personal fork
 upstream: official repository, fetch only
 ```
 
-The current portfolio baseline is upstream branch `2026.07` at
-`f213380f812b820a1b312e2ea52cb3d8f1931ccc`. Always re-read `upstream/HEAD`
-before new work; branch names and SHAs can change.
+Each campaign pins one exact upstream baseline (PPBFS state-index work: `2026.07`
+at `f213380f812b820a1b312e2ea52cb3d8f1931ccc`; WALK bookkeeping, P10, and #13937:
+`2026.08` at `736cad02a36bb4a0d32c1064f44768339c814269`). Always re-read
+`upstream/HEAD` before new work; branch names and SHAs can change.
 
 The personal fork's default branch is intentionally the portfolio branch so a
 visitor sees this documentation first. Therefore, never use `origin/HEAD` as an
@@ -45,7 +46,7 @@ To synchronize the fork's upstream-named branch, specify it rather than relying
 on the fork default:
 
 ```powershell
-gh repo sync iancuuandrei/neo4j --source neo4j/neo4j --branch 2026.07
+gh repo sync iancuuandrei/neo4j-contributions --source neo4j/neo4j --branch 2026.07
 ```
 
 ## Branch roles

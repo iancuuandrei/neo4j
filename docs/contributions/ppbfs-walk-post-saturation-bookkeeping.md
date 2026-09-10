@@ -3,7 +3,7 @@
 ## Status
 
 **Candidate; upstream issue [neo4j/neo4j#13968](https://github.com/neo4j/neo4j/issues/13968) open for architecture feedback, no PR submitted.** A minimal review branch exists at
-[`contrib/ppbfs-walk-post-saturation-bookkeeping`](https://github.com/iancuuandrei/neo4j/tree/contrib/ppbfs-walk-post-saturation-bookkeeping),
+[`contrib/ppbfs-walk-post-saturation-bookkeeping`](https://github.com/iancuuandrei/neo4j-contributions/tree/contrib/ppbfs-walk-post-saturation-bookkeeping),
 independently rooted at upstream `2026.08` (`736cad02a36bb4a0d32c1064f44768339c814269`).
 Real-world qualification is complete (STRONG REAL-WORLD CASE, details below);
 maintainer review remains pending.
