@@ -9,6 +9,12 @@ exists, with material whole-PPBFS and end-to-end speedups, negligible
 regressions, and zero delta outside its scope. Hetionet is neutral
 (low reconvergence), not negative.
 
+## Workload definitions
+
+Exact queries, source manifests, NFA constructions, and invocation parameters:
+[`research/ppbfs/p7/workloads/`](workloads/) (maintainer-inspectable without
+reading the full archive).
+
 ## SHAs and method
 
 ```text
