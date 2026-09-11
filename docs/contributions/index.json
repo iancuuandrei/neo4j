@@ -112,6 +112,20 @@
       "upstreamPR": "neo4j/neo4j#13973",
       "mergedCommit": null,
       "validatedImpact": "structural: nested COUNT evaluations 3,978 -> 18 by plan construction (no wall-clock claim); 17/17 new regression tests, planner/slotted/physical suites green, baseline failures unchanged"
+    },
+    {
+      "slug": "13942-keys-eagerization",
+      "title": "Fix eagerization for keys() property reads",
+      "area": "Cypher planner / Eager analysis",
+      "status": "PR Open",
+      "branch": "fix/13942",
+      "branchUrl": "https://github.com/iancuuandrei/neo4j-contributions/tree/fix/13942",
+      "researchBranch": null,
+      "researchBranchUrl": null,
+      "upstreamIssue": "neo4j/neo4j#13942",
+      "upstreamPR": "neo4j/neo4j#13979",
+      "mergedCommit": null,
+      "validatedImpact": "correctness: direct/materialized keys() queries both return {0,0,2,2} on slotted+pipelined (materialized was 3 rows); Eager with PropertyReadSetConflict(k0) derived by existing machinery; 506 planner + 7 E2E tests green, write stats/graph unchanged"
     }
   ]
 }

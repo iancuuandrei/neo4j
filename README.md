@@ -21,6 +21,7 @@ references stay one click away so this list stays one line per item.
 - [Execution model fix for unsupported runtime fallback](docs/contributions/community-pipelined-fallback-execution-model.md) — **PR open** · pipelined ~8.4s → ~0.4s · [branch](https://github.com/iancuuandrei/neo4j-contributions/tree/investigate/13937) · [PR neo4j/neo4j#13972](https://github.com/neo4j/neo4j/pull/13972)
 - [Repeated nested COUNT evaluation in optional matches](docs/contributions/13924-optional-count-hoist.md) — **Submitted for upstream review** · 3,978 → 18 nested COUNT evaluations · [branch](https://github.com/iancuuandrei/neo4j-contributions/tree/fix/13924-optional-count-hoist) · [PR neo4j/neo4j#13973](https://github.com/neo4j/neo4j/pull/13973)
 - [Overflow for large range cardinalities](https://github.com/neo4j/neo4j/pull/13978) — **PR open** · size(range(0, 2^31−1)) 0 → 2^31, no more truncated property prefixes · [branch](https://github.com/iancuuandrei/neo4j-contributions/tree/fix/13957-isolated) · [PR neo4j/neo4j#13978](https://github.com/neo4j/neo4j/pull/13978)
+- [Eagerization for keys() property reads](https://github.com/neo4j/neo4j/pull/13979) — **PR open** · materialized keys() query 3 rows → correct {0,0,2,2} on slotted+pipelined · [branch](https://github.com/iancuuandrei/neo4j-contributions/tree/fix/13942) · [PR neo4j/neo4j#13979](https://github.com/neo4j/neo4j/pull/13979)
 
 ## Current research
 
