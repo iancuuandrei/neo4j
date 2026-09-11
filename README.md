@@ -20,6 +20,7 @@ references stay one click away so this list stays one line per item.
 - [SSP to FSP specialization for simple QPP node groups](docs/contributions/p10-shortest-path-specialization.md) — **PR open** · up to 5.49x · [branch](https://github.com/iancuuandrei/neo4j-contributions/tree/contrib/ssp-to-fsp-node-groups) · [PR neo4j/neo4j#13970](https://github.com/neo4j/neo4j/pull/13970)
 - [Execution model fix for unsupported runtime fallback](docs/contributions/community-pipelined-fallback-execution-model.md) — **PR open** · pipelined ~8.4s → ~0.4s · [branch](https://github.com/iancuuandrei/neo4j-contributions/tree/investigate/13937) · [PR neo4j/neo4j#13972](https://github.com/neo4j/neo4j/pull/13972)
 - [Repeated nested COUNT evaluation in optional matches](docs/contributions/13924-optional-count-hoist.md) — **Submitted for upstream review** · 3,978 → 18 nested COUNT evaluations · [branch](https://github.com/iancuuandrei/neo4j-contributions/tree/fix/13924-optional-count-hoist) · [PR neo4j/neo4j#13973](https://github.com/neo4j/neo4j/pull/13973)
+- [Overflow for large range cardinalities](https://github.com/neo4j/neo4j/pull/13978) — **PR open** · size(range(0, 2^31−1)) 0 → 2^31, no more truncated property prefixes · [branch](https://github.com/iancuuandrei/neo4j-contributions/tree/fix/13957-isolated) · [PR neo4j/neo4j#13978](https://github.com/neo4j/neo4j/pull/13978)
 
 ## Current research
 
